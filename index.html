@@ -19,10 +19,8 @@
     html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
     body{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;}
 
-    /* Wrapper */
     .wrapper{ width:100%; max-width:380px; }
 
-    /* Title with bolts */
     .title-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px; }
     .bolt {
       width:32px;height:32px;background:linear-gradient(180deg,#fff8b0,#ffcc00);
@@ -38,7 +36,6 @@
     .bolt.left{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s; }
     .bolt.right{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0.6s; }
 
-    /* Pokedex card */
     .pokedex {
       background: var(--card-red);
       border-radius:18px;
@@ -47,7 +44,6 @@
       border: 2px solid rgba(0,0,0,0.35);
     }
 
-    /* Screen */
     .screen-container {
       background: var(--screen);
       border-radius:10px;
@@ -59,37 +55,41 @@
       box-sizing:border-box;
     }
 
-    /* 🔧 Fondo del Pokémon transparente (solo cambio) */
-    .pokemon-img {
-      width:160px;
-      height:160px;
-      display:block;
-      margin:10px auto;
-      border-radius:8px;
-      animation:float 2.2s ease-in-out infinite;
-      background: transparent !important; /* <-- aquí solo se cambió */
-      object-fit: contain;
-      image-rendering: -webkit-optimize-contrast;
-    }
-
+    .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
     #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; }
-    .tag { color: #061; background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,204,0,0.10); border-radius:6px; transition:background .18s; }
+    .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
+    .highlight { background: rgba(255,204,0,0.35); border-radius:6px; transition:background .18s; }
 
-    /* Controls */
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
     .btnBuscar{ padding:10px 12px; border-radius:8px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; }
     .btnClear{ padding:10px 12px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; }
-    .btnBuscar:active, .btnClear:active { transform: translateY(1px); }
 
-    /* Audio button */
-    #btnAudio { margin-top:10px; display:none; width:100%; padding:10px; border-radius:8px; background:#2a9d8f; border:none; color:white; cursor:pointer; font-weight:700; }
-    #btnAudio.speaking { background:#e76f51; }
+    /* Botón de audio animado */
+    #btnAudio {
+      margin:12px 0;
+      width:100%;
+      padding:12px;
+      border-radius:8px;
+      background:#2a9d8f;
+      border:none;
+      color:white;
+      cursor:pointer;
+      font-weight:700;
+      display:none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #btnAudio.speaking {
+      animation: pulseBtn 1s infinite alternate;
+      background:#e76f51;
+    }
+    @keyframes pulseBtn {
+      0% { transform: scale(1); box-shadow: 0 0 10px #e76f51; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #e76f51; }
+    }
 
-    /* Rayos decorativos - subtle */
     .rayo {
       position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
       animation:caer 1.1s linear infinite;
@@ -99,7 +99,6 @@
     .rayo.r3 { left:86%; animation-delay:0.65s; }
     @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
 
-    /* responsive */
     @media (max-width:420px) {
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
@@ -108,37 +107,34 @@
 </head>
 <body>
   <div class="wrapper">
-    <div class="title-row" aria-hidden="false">
-      <div class="bolt left" aria-hidden="true"></div>
+    <div class="title-row">
+      <div class="bolt left"></div>
       <div class="title">PokeViewer</div>
-      <div class="bolt right" aria-hidden="true"></div>
+      <div class="bolt right"></div>
     </div>
 
-    <div class="pokedex" role="main" aria-label="PokeViewer">
+    <div class="pokedex">
       <div class="screen-container">
-        <div id="screen" class="screen" aria-live="polite">
-          <p>🔍 Escribe un nombre de Pokémon para comenzar.</p>
-        </div>
-
-        <button id="btnAudio" aria-label="Reproducir/Pausar audio">🔊 Leer</button>
+        <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
 
-      <div class="controls" role="search">
-        <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" aria-label="Nombre del Pokémon" />
-        <button id="buscarBtn" class="btnBuscar" aria-label="Buscar">Buscar</button>
-        <button id="clearBtn" class="btnClear" aria-label="Limpiar">Limpiar</button>
+      <!-- ✅ Botón Leer ahora arriba de Buscar/Limpiar -->
+      <button id="btnAudio">🔊 Leer</button>
+
+      <div class="controls">
+        <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
+        <button id="buscarBtn" class="btnBuscar">Buscar</button>
+        <button id="clearBtn" class="btnClear">Limpiar</button>
       </div>
     </div>
   </div>
 
-  <!-- subtle lightning decoration -->
   <div class="rayo r1"></div>
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
   <script>
   (function () {
-    // Elements
     const input = document.getElementById('pokemonInput');
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
@@ -147,17 +143,14 @@
 
     let speech = null, paused = false, currentParagraphIndex = 0, paragraphs = [], paragraphElements = [];
 
-    // Helper: escape
     function esc(s){ return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
 
-    // Split paragraphs
     function splitParagraphs(text) {
       if (!text) return [];
       return text.replace(/[\*\/]/g,"").split(/\n+/).map(p => p.trim()).filter(p => p);
     }
 
-    // Organize & shorten the response into ordered sections
-    const PREFERRED = ["Tipo","Fortalezas","Debilidades","Ataques recomendados","Ataques","Movimientos","Estrategia","Recomendación"];
+    const PREFERRED = ["Tipo","Fortalezas","Debilidades","Ataques recomendados","Ataques","Estrategia","Consejos"];
 
     function organize(text) {
       const paras = splitParagraphs(text);
@@ -176,68 +169,59 @@
       });
 
       const out = [];
-      // prefer Description first
       if (sections["Descripción"]) {
         out.push({ tag: "Descripción", text: sections["Descripción"].slice(0,2).join(" ") });
         delete sections["Descripción"];
       }
-      // preferred tags
       PREFERRED.forEach(tag => {
         if (sections[tag]) { out.push({ tag, text: sections[tag].join(" ") }); delete sections[tag]; }
       });
-      // leftover
       Object.keys(sections).forEach(k => out.push({ tag: k, text: sections[k].join(" ") }));
 
-      // limit length: keep first 5 sections and truncate texts to ~160 chars
-      const limited = out.slice(0,5).map(s => ({ tag: s.tag, text: s.text.length>200 ? s.text.slice(0,197)+"…" : s.text }));
-      // build html and paragraphs for TTS
+      const limited = out.slice(0,6).map(s => ({ tag: s.tag, text: s.text.length>260 ? s.text.slice(0,257)+"…" : s.text }));
       const html = limited.map(s => `<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = limited.map(s => s.text);
       return { html, parasForTTS };
     }
 
     function showLoading(name){
+      if (speech && window.speechSynthesis) window.speechSynthesis.cancel(); // ✅ parar lectura al buscar
       screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
       btnAudioEl.style.display = "none";
+      btnAudioEl.classList.remove("speaking");
     }
     function showError(msg){
       screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
       btnAudioEl.style.display = "none";
+      btnAudioEl.classList.remove("speaking");
     }
 
-    // Main search using visor proxy
     async function buscarPokemon(nombre){
       if (!nombre) return;
       showLoading(nombre);
-
       try {
-        const resp = await fetch("/api/proxy", {
+        const resp = await fetch("/api/pokemon", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pokemon: nombre })
         });
-
         if (!resp.ok) {
-          const t = await resp.text().catch(()=>"");
-          showError("Error en proxy: "+ (t || resp.status));
+          showError("Error en el servidor: "+resp.status);
           return;
         }
-
         const data = await resp.json();
         if (data.error || !data.respuesta) {
-          showError(data.error || "No se recibió respuesta de la IA.");
+          showError(data.error || "No se recibió respuesta.");
           return;
         }
 
         const sprite = data.sprite || "";
         const organized = organize(data.respuesta);
 
-        // render
         screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"") +
-                           `<h2 style="text-align:center; color:${"--accent"}">${esc(nombre.toUpperCase())}</h2>` +
+                           `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>` +
                            `<div id="resultado">${organized.html}</div>`;
 
-        // prepare TTS
         paragraphs = organized.parasForTTS.length ? organized.parasForTTS : splitParagraphs(data.respuesta).slice(0,5);
         paragraphElements = document.querySelectorAll("#resultado p");
         currentParagraphIndex = 0;
@@ -247,11 +231,10 @@
 
       } catch (err) {
         console.error(err);
-        showError("Error al conectar con el servidor proxy.");
+        showError("Error al conectar con el servidor.");
       }
     }
 
-    // Events
     buscarBtn.addEventListener("click", function () {
       const nombre = (input.value||"").trim().toLowerCase();
       if (!nombre) { alert("Ingresa un nombre de Pokémon"); return; }
@@ -266,11 +249,11 @@
       input.value = "";
       screen.innerHTML = `<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display = "none";
+      btnAudioEl.classList.remove("speaking");
       paragraphs = []; paragraphElements = []; currentParagraphIndex = 0; paused = false;
       if (speech && window.speechSynthesis) window.speechSynthesis.cancel();
     });
 
-    // TTS
     if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
       btnAudioEl.addEventListener("click", function(){
         if (!paragraphs.length) return;
@@ -291,6 +274,7 @@
         btnAudioEl.classList.remove("speaking");
         currentParagraphIndex = 0;
         if (paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if (screen) screen.scrollTop = 0; // ✅ volver al inicio
         speech = null; return;
       }
       const paragraph = paragraphs[currentParagraphIndex];
@@ -298,23 +282,14 @@
       u.lang = 'es-ES';
       if (paragraphElements) paragraphElements.forEach(p=>p.classList.remove('highlight'));
       const currEl = paragraphElements[currentParagraphIndex];
-      if (currEl) { currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
+      if (currEl) { 
+        currEl.classList.add('highlight'); 
+        currEl.scrollIntoView({behavior:'smooth', block:'center'});
+      }
       u.onend = function(){ currentParagraphIndex++; speakNext(); };
       speech = u; window.speechSynthesis.speak(u);
       btnAudioEl.classList.add('speaking'); paused = false;
     }
-
-    // expose
-    window.buscarPokemon = function(nombre){ if(!nombre) return; buscarPokemon(String(nombre).toLowerCase()); };
-
-    // polyfills if needed (AppCreator older webview)
-    (function ensurePolyfills(){
-      const need = (!window.fetch || !window.Promise || !window.TextDecoder || !window.TextEncoder);
-      if (need) {
-        const p = document.createElement('script'); p.src = "https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"; document.head.appendChild(p);
-        const f = document.createElement('script'); f.src = "https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"; document.head.appendChild(f);
-      }
-    })();
 
   })();
   </script>
