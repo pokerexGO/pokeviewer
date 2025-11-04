@@ -67,13 +67,12 @@
     .btnBuscar{ padding:10px 12px; border-radius:8px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; }
     .btnClear{ padding:10px 12px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; }
 
-    /* Botón de audio animado */
     #btnAudio {
       margin:12px 0;
       width:100%;
       padding:12px;
       border-radius:8px;
-      background:#111; /* gris oscuro más intenso */
+      background:#111;
       border:none;
       color:white;
       cursor:pointer;
@@ -83,7 +82,7 @@
     }
     #btnAudio.speaking {
       animation: pulseBtn 1s infinite alternate;
-      background:#66bb66; /* verde suave */
+      background:#66bb66;
     }
     @keyframes pulseBtn {
       0% { transform: scale(1); box-shadow: 0 0 10px #66bb66; }
@@ -141,7 +140,7 @@
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
-    let speech = null, paused = false, currentParagraphIndex = 0, paragraphs = [], paragraphElements = [];
+    let speech=null, paused=false, currentParagraphIndex=0, paragraphs=[], paragraphElements=[];
 
     function esc(s){ return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
 
@@ -151,13 +150,13 @@
     }
 
     function organize(text){
-      const paras = splitText(text);
-      const sections = {};
+      const paras=splitText(text);
+      const sections={};
       paras.forEach(p=>{
-        const m = p.match(/^([^:]{2,40}):\s*(.*)$/);
+        const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
         if(m){
-          const tag = m[1].trim();
-          const content = m[2].trim();
+          const tag=m[1].trim();
+          const content=m[2].trim();
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
@@ -165,26 +164,25 @@
           sections["Información"].push(p);
         }
       });
-      const out = [];
+      const out=[];
       Object.keys(sections).forEach(tag=>{
-        if(sections[tag] && sections[tag].length) out.push({tag, text: sections[tag].join(" ")});
+        if(sections[tag] && sections[tag].length) out.push({tag, text:sections[tag].join(" ")});
       });
-      const limited = out.map(s=>({tag:s.tag, text:s.text.length>400?s.text.slice(0,397)+"…":s.text}));
-      const html = limited.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = limited.map(s=>s.tag+": "+s.text);
+      const html=out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
+      const parasForTTS=out.map(s=>s.tag+": "+s.text);
       return {html, parasForTTS};
     }
 
     function showLoading(name){
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
-      screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
+      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.background="#111";
     }
 
     function showError(msg){
-      screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
+      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.background="#111";
@@ -194,33 +192,33 @@
       if(!nombre) return;
       showLoading(nombre);
       try {
-        const resp = await fetch("/api/proxy", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre}) });
+        const resp=await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
         if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
-        const data = await resp.json();
-        if(data.error || !data.respuesta){ showError(data.error || "No se recibió respuesta."); return; }
+        const data=await resp.json();
+        if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
 
-        const sprite = data.sprite || "";
-        const organized = organize(data.respuesta);
+        const sprite=data.sprite||"";
+        const organized=organize(data.respuesta);
 
-        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"") +
-                           `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>` +
-                           `<div id="resultado">${organized.html}</div>`;
+        screen.innerHTML=(sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+
+                          `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+
+                          `<div id="resultado">${organized.html}</div>`;
 
-        paragraphs = organized.parasForTTS;
-        paragraphElements = document.querySelectorAll("#resultado p");
-        currentParagraphIndex = 0;
+        paragraphs=organized.parasForTTS;
+        paragraphElements=document.querySelectorAll("#resultado p");
+        currentParagraphIndex=0;
         btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.background="#111";
-        speech = null;
+        speech=null;
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
-    buscarBtn.addEventListener("click", function(){ 
-      const nombre = (input.value||"").trim().toLowerCase(); 
-      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; } 
-      buscarPokemon(nombre); 
+    buscarBtn.addEventListener("click", function(){
+      const nombre=(input.value||"").trim().toLowerCase();
+      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
+      buscarPokemon(nombre);
     });
 
     input.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
@@ -238,13 +236,13 @@
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
       btnAudioEl.addEventListener("click", function(){
         if(!paragraphs.length) return;
-        const synth = window.speechSynthesis;
+        const synth=window.speechSynthesis;
         if(synth.speaking || paused){
           if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#111"; }
           else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#66bb66"; }
         } else { currentParagraphIndex=0; speakNext(); }
       });
-    } else { btnAudioEl.style.display="none"; }
+    } else btnAudioEl.style.display="none";
 
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
@@ -261,10 +259,7 @@
       u.lang='es-ES';
       if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove('highlight'));
       const currEl=paragraphElements[currentParagraphIndex];
-      if(currEl){ 
-        currEl.classList.add('highlight'); 
-        currEl.scrollIntoView({behavior:'smooth', block:'center'});
-      }
+      if(currEl){ currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
       u.onend=function(){ currentParagraphIndex++; speakNext(); };
       speech=u; window.speechSynthesis.speak(u);
       btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#66bb66"; paused=false;
