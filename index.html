@@ -200,11 +200,11 @@
       if (!nombre) return;
       showLoading(nombre);
       try {
-        const resp = await fetch("/api/pokemon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pokemon: nombre })
-        });
+        const resp = await fetch("/api/proxy", {  // <<--- corregido de /api/pokemon a /api/proxy
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ pokemon: nombre })
+});
         if (!resp.ok) {
           showError("Error en el servidor: "+resp.status);
           return;
