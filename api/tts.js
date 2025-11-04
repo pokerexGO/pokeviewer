@@ -1,4 +1,4 @@
-// Este archivo recibe { text: "..." } y devuelve un audio mp3
+// API para generar audio TTS que funcione en AppCreator24
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
@@ -6,8 +6,7 @@ export default async function handler(req, res) {
     const { text } = req.body;
     if (!text || text.trim() === "") return res.status(400).json({ error: "Texto vacío" });
 
-    // Usamos la API de OpenAI TTS o cualquier servicio TTS que tengas
-    // Aquí un ejemplo con OpenAI
+    // Llamada a la API TTS (ejemplo con OpenAI)
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
@@ -23,7 +22,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Error TTS:", errText);
+      console.error("Error generando audio TTS:", errText);
       return res.status(500).json({ error: "Error generando audio TTS" });
     }
 
