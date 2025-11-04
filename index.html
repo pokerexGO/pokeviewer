@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; /* Más cerca de los botones */
+      margin:6px 0;
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -153,7 +153,6 @@
     let highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -168,7 +167,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[];
+          if(!sections["Información"]) sections["Información"]=[]; 
           sections["Información"].push(p);
         }
       });
@@ -233,13 +232,7 @@
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
-    buscarBtn.addEventListener("click", ()=>{
-      const nombre=(input.value||"").trim().toLowerCase();
-      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
-      buscarPokemon(nombre);
-    });
-
+    buscarBtn.addEventListener("click", ()=>{ const nombre=(input.value||"").trim().toLowerCase(); if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; } if(window.speechSynthesis) window.speechSynthesis.cancel(); buscarPokemon(nombre); });
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
 
     clearBtn.addEventListener("click", ()=>{
@@ -255,6 +248,15 @@
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
+
+    // ⚡ Corrección para AppCreator24
+    function initDummySpeech() {
+      if(!("speechSynthesis" in window)) return;
+      const utter = new SpeechSynthesisUtterance(" ");
+      window.speechSynthesis.speak(utter);
+      window.speechSynthesis.cancel();
+    }
+    initDummySpeech();
 
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
       btnAudioEl.addEventListener("click", ()=>{
@@ -301,10 +303,7 @@
       paused=false;
       startHighlightLoop();
 
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
+      u.onend = ()=>{ currentParagraphIndex++; speakNext(); };
     }
 
   })();
