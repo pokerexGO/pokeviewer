@@ -1,29 +1,174 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PokeAsistente IA</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PokeViewer</title>
   <style>
-    html, body {
+    :root {
+      --bg-color: #0d1117;
+      --text-color: #e6edf3;
+      --accent: #ffcc00;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+      --button-bg: #ffcc00;
+      --button-text: #0d1117;
+    }
+
+    body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background-color: #000;
+      font-family: "Poppins", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 30px 15px;
     }
-    iframe {
-      border: none;
+
+    h1 {
+      font-size: 2rem;
+      color: var(--accent);
+      text-shadow: 0 0 10px #ffcc00aa;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
       width: 100%;
-      height: 100%;
+      max-width: 420px;
+      box-shadow: 0 0 12px rgba(255, 204, 0, 0.1);
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    input {
+      width: 70%;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: #0d1117;
+      color: var(--text-color);
+      outline: none;
+    }
+
+    button {
+      background-color: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #ffd633;
+      transform: scale(1.05);
+    }
+
+    img {
+      width: 160px;
+      margin-top: 15px;
+      animation: fadeIn 0.6s ease;
+    }
+
+    #resultado {
+      text-align: left;
+      margin-top: 20px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .tag {
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    footer {
+      margin-top: 30px;
+      font-size: 0.8rem;
+      opacity: 0.6;
     }
   </style>
 </head>
 <body>
-  <iframe 
-    src="https://pokeasistente-ia-generative.vercel.app/" 
-    allow="microphone; clipboard-write; clipboard-read; autoplay"
-    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation"
-  ></iframe>
+
+  <h1>⚡ PokeViewer ⚡</h1>
+  <div class="card">
+    <input type="text" id="pokemonInput" placeholder="Escribe el nombre del Pokémon..." />
+    <button onclick="buscarPokemon()">Buscar</button>
+
+    <div id="resultado">
+      <p>💬 Ingresa un nombre para comenzar la búsqueda.</p>
+    </div>
+  </div>
+
+  <footer>Integrado con IA Gemini y PokeAPI</footer>
+
+  <script>
+  async function buscarPokemon() {
+    const nombre = document.getElementById("pokemonInput").value.trim().toLowerCase();
+    const resultadoDiv = document.getElementById("resultado");
+
+    if (!nombre) {
+      resultadoDiv.innerHTML = "<p>⚠️ Escribe el nombre de un Pokémon.</p>";
+      return;
+    }
+
+    resultadoDiv.innerHTML = "<p>⏳ Buscando información sobre <strong>" + nombre + "</strong>...</p>";
+
+    try {
+      const respuesta = await fetch("/api/proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pokemon: nombre })
+      });
+
+      const data = await respuesta.json();
+
+      if (data.error) {
+        resultadoDiv.innerHTML = `<p>❌ Error: ${data.error}</p>`;
+        return;
+      }
+
+      resultadoDiv.innerHTML = `
+        ${data.sprite ? `<img src="${data.sprite}" alt="${nombre}">` : ""}
+        <h2>${nombre.toUpperCase()}</h2>
+        <div id="descripcion">${formatText(data.respuesta || "Sin respuesta del modelo.")}</div>
+      `;
+    } catch (err) {
+      resultadoDiv.innerHTML = "<p>⚠️ Error al conectar con el servidor proxy.</p>";
+      console.error(err);
+    }
+  }
+
+  function formatText(text) {
+    if (!text) return "Sin respuesta del modelo.";
+    const paragraphs = text.split(/\\n+/).filter(p => p.trim() !== "");
+    const tags = ["Tipo","Tipos","Habilidad","Habilidades","Debilidad","Debilidades","Ataque","Ataques","Estrategia","Estrategias","Consejo","Consejos","Evolución","Evoluciones","Movimientos","Resistencia","Ventaja","Fortaleza","Fortalezas","Recomendación","Notas"];
+
+    return paragraphs.map(function(p) {
+      for (let tag of tags) {
+        const regex = new RegExp("(" + tag + "):", "gi");
+        p = p.replace(regex, "<span class='tag'>" + tag + "</span>:");
+      }
+      return "<p>" + p + "</p>";
+    }).join("");
+  }
+  </script>
 </body>
 </html>
