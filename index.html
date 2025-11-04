@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0;
+      margin:6px 0; /* Más cerca de los botones */
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -149,7 +149,8 @@
     const btnAudioEl = document.getElementById('btnAudio');
 
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
-    let speaking=false, highlightInterval=null;
+    let speech=null, paused=false;
+    let highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -176,7 +177,7 @@
         sections[tag] = sections[tag].filter(line=>line.trim());
         if(sections[tag].length===0) sections[tag]=["Información no disponible"];
       });
-      const out=[]; 
+      const out=[];
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
       const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
@@ -184,7 +185,7 @@
     }
 
     function showLoading(name){
-      if('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
@@ -222,7 +223,9 @@
         btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
+        speech=null;
 
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -233,7 +236,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -245,30 +248,79 @@
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; 
-      if('speechSynthesis' in window) window.speechSynthesis.cancel();
+      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       clearInterval(highlightInterval);
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
 
-    // --- NUEVO MÉTODO DE VOZ USANDO SPEECHSYNTHESIS ---
-    function hablar(texto) {
-      if('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(texto);
-        msg.lang = 'es-ES';
-        window.speechSynthesis.speak(msg);
-      } else {
-        alert("Audio no disponible en AppCreator24.");
+    // 🔊 Inicialización de voz forzada para AppCreator24
+    let speechInitialized = false;
+    document.body.addEventListener("click", function initDummySpeech() {
+      if (speechInitialized) return;
+      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+        const u = new SpeechSynthesisUtterance("");
+        u.lang = "es-ES";
+        window.speechSynthesis.speak(u);
+        window.speechSynthesis.cancel(); // Cancelamos inmediatamente, solo es para desbloquear
+        speechInitialized = true;
+        console.log("SpeechSynthesis inicializado para AppCreator24");
       }
+      document.body.removeEventListener("click", initDummySpeech);
+    });
+
+    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
+      btnAudioEl.addEventListener("click", ()=>{
+        if(!paragraphs.length) return;
+        const synth = window.speechSynthesis;
+        if(synth.speaking || paused){
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+        } else { currentParagraphIndex=0; speakNext(); }
+      });
+    } else btnAudioEl.style.display="none";
+
+    function startHighlightLoop(){
+      clearInterval(highlightInterval);
+      highlightInterval = setInterval(()=>{
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(currentParagraphIndex<paragraphElements.length) {
+          paragraphElements[currentParagraphIndex].classList.add("highlight");
+          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
+        }
+      },50);
     }
 
-    btnAudioEl.addEventListener("click", ()=>{
-      if(!paragraphs.length) return;
-      hablar(paragraphs.join(". "));
-    });
+    function speakNext(){
+      if(currentParagraphIndex>=paragraphs.length){
+        btnAudioEl.classList.remove("speaking");
+        btnAudioEl.style.border="2px solid transparent";
+        currentParagraphIndex=0;
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(screenContainer) screenContainer.scrollTop=0;
+        speech=null;
+        clearInterval(highlightInterval);
+        return;
+      }
+
+      const paragraph = paragraphs[currentParagraphIndex];
+      const u = new SpeechSynthesisUtterance(paragraph);
+      u.lang='es-ES';
+
+      speech = u;
+      window.speechSynthesis.speak(u);
+      btnAudioEl.classList.add("speaking");
+      btnAudioEl.style.border="2px solid #00f0ff";
+      paused=false;
+      startHighlightLoop();
+
+      u.onend = ()=>{
+        currentParagraphIndex++;
+        speakNext();
+      };
+    }
 
   })();
   </script>
