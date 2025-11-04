@@ -67,6 +67,7 @@
     .btnBuscar{ padding:10px 12px; border-radius:8px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; }
     .btnClear{ padding:10px 12px; border-radius:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; }
 
+    /* Botón de audio */
     #btnAudio {
       margin:12px 0;
       width:100%;
@@ -80,7 +81,14 @@
       display:none;
       transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
     }
-    #btnAudio.speaking { border:2px solid #00f0ff; }
+    #btnAudio.speaking {
+      border:2px solid #00f0ff;
+      animation: pulseBtn 1s infinite alternate;
+    }
+    @keyframes pulseBtn {
+      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
+    }
 
     .rayo {
       position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
