@@ -42,6 +42,9 @@
       padding:18px;
       box-shadow: 0 10px 40px rgba(0,0,0,0.6);
       border: 2px solid rgba(0,0,0,0.35);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
     }
 
     .screen-container {
@@ -49,10 +52,12 @@
       border-radius:10px;
       border:3px solid var(--border);
       padding:14px;
-      min-height:420px; /* aumentado */
-      max-height:72vh;  /* aumentado */
+      min-height:420px;
+      max-height:72vh;
+      width:100%;
       overflow:auto;
       box-sizing:border-box;
+      transition: width 0.3s, max-height 0.3s;
     }
 
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
@@ -62,7 +67,7 @@
     .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
     .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
 
-    .controls { margin-top:14px; display:flex; gap:10px; align-items:center; justify-content:center; }
+    .controls { margin-top:14px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
     input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
     .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
@@ -102,7 +107,7 @@
     @media (max-width:420px) {
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
-      .screen-container { min-height:360px; max-height:65vh; }
+      .screen-container { min-height:360px; max-height:65vh; width:100%; }
       input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
     }
   </style>
@@ -220,6 +225,10 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        // ✅ Adaptar el cuadro de texto al tamaño de la pantalla
+        screenContainer.style.maxHeight = (window.innerHeight*0.7) + "px";
+        screenContainer.style.width = "100%";
+
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
@@ -241,6 +250,8 @@
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(window.speechSynthesis) window.speechSynthesis.cancel();
       clearInterval(highlightInterval);
+      screenContainer.style.maxHeight = "72vh";
+      screenContainer.style.width = "100%";
     });
 
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
