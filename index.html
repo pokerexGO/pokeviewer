@@ -58,9 +58,9 @@
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
-    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.2s; }
+    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,165,0,0.35); border-radius:6px; transition: background 0.1s; }
+    .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -133,9 +133,12 @@
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
-    let speech=null, paused=false, currentParagraphIndex=0, paragraphs=[], paragraphElements=[];
+    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
+    let speech=null, paused=false;
+    let highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -154,7 +157,6 @@
           sections["Información"].push(p);
         }
       });
-      // asegurar contenido real en Información
       if(!sections["Información"] || sections["Información"].length===0) sections["Información"]=["Información no disponible"];
       Object.keys(sections).forEach(tag=>{
         sections[tag] = sections[tag].filter(line=>line.trim());
@@ -173,6 +175,7 @@
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
+      clearInterval(highlightInterval);
     }
 
     function showError(msg){
@@ -180,6 +183,7 @@
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
+      clearInterval(highlightInterval);
     }
 
     async function buscarPokemon(nombre){
@@ -212,6 +216,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -224,7 +229,8 @@
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      clearInterval(highlightInterval);
     });
 
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
@@ -232,20 +238,32 @@
         if(!paragraphs.length) return;
         const synth = window.speechSynthesis;
         if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; }
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; }
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
         } else { currentParagraphIndex=0; speakNext(); }
       });
     } else btnAudioEl.style.display="none";
+
+    function startHighlightLoop(){
+      clearInterval(highlightInterval);
+      highlightInterval = setInterval(()=>{
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(currentParagraphIndex<paragraphElements.length) {
+          paragraphElements[currentParagraphIndex].classList.add("highlight");
+          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
+        }
+      },50);
+    }
 
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
         currentParagraphIndex=0;
-        if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
         if(screenContainer) screenContainer.scrollTop=0;
         speech=null;
+        clearInterval(highlightInterval);
         return;
       }
 
@@ -253,23 +271,17 @@
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
 
-      // Fuerza resalte
-      paragraphElements.forEach(p=>p.classList.remove("highlight"));
-      const currEl = paragraphElements[currentParagraphIndex];
-      if(currEl){ 
-        currEl.classList.add("highlight");
-        currEl.scrollIntoView({behavior:"smooth", block:"center"});
-      }
-
-      u.onstart = ()=>{ btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; }
-      u.onend = ()=>{ 
-        currentParagraphIndex++; 
-        setTimeout(()=>speakNext(), 50); // fuerza paso al siguiente para resaltar correctamente
-      };
-
-      speech=u;
+      speech = u;
       window.speechSynthesis.speak(u);
+      btnAudioEl.classList.add("speaking");
+      btnAudioEl.style.border="2px solid #00f0ff";
       paused=false;
+      startHighlightLoop();
+
+      u.onend = ()=>{
+        currentParagraphIndex++;
+        speakNext();
+      };
     }
 
   })();
