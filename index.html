@@ -73,20 +73,20 @@
       padding:12px;
       border-radius:8px;
       background:#111;
-      border:none;
+      border:2px solid transparent;
       color:white;
       cursor:pointer;
       font-weight:700;
       display:none;
-      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
     }
     #btnAudio.speaking {
       animation: pulseBtn 1s infinite alternate;
-      background:#88cc88; /* Verde más suave */
+      border: 2px solid #00f0ff; /* borde neon celeste */
     }
     @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #88cc88; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #88cc88; }
+      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
     .rayo {
@@ -164,6 +164,13 @@
           sections["Información"].push(p);
         }
       });
+
+      // Eliminar cualquier texto genérico que empiece con "Aquí tienes"
+      Object.keys(sections).forEach(tag=>{
+        sections[tag] = sections[tag].filter(line => !/^Aquí tienes/i.test(line));
+        if(sections[tag].length===0) sections[tag]=["Información no disponible"];
+      });
+
       const out=[];
       Object.keys(sections).forEach(tag=>{
         if(sections[tag] && sections[tag].length) out.push({tag, text:sections[tag].join(" ")});
@@ -178,14 +185,14 @@
       screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#111";
+      btnAudioEl.style.border="2px solid transparent";
     }
 
     function showError(msg){
       screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#111";
+      btnAudioEl.style.border="2px solid transparent";
     }
 
     async function buscarPokemon(nombre){
@@ -209,7 +216,7 @@
         currentParagraphIndex=0;
         btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.background="#111";
+        btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
@@ -228,7 +235,7 @@
       screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#111";
+      btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
     });
@@ -238,8 +245,8 @@
         if(!paragraphs.length) return;
         const synth=window.speechSynthesis;
         if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#111"; }
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#88cc88"; }
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; }
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; }
         } else { currentParagraphIndex=0; speakNext(); }
       });
     } else btnAudioEl.style.display="none";
@@ -247,7 +254,7 @@
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.background="#111";
+        btnAudioEl.style.border="2px solid transparent";
         currentParagraphIndex=0;
         if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
         if(screenContainer) screenContainer.scrollTop=0;
@@ -262,7 +269,7 @@
       if(currEl){ currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
       u.onend=function(){ currentParagraphIndex++; speakNext(); };
       speech=u; window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#88cc88"; paused=false;
+      btnAudioEl.classList.add('speaking'); btnAudioEl.style.border="2px solid #00f0ff"; paused=false;
     }
   })();
   </script>
