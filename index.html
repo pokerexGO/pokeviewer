@@ -60,7 +60,7 @@
 
     #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,204,0,0.35); border-radius:6px; transition:background .18s; }
+    .highlight { background: rgba(0,255,0,0.3); border-radius:6px; transition:background .18s; }
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -73,7 +73,7 @@
       width:100%;
       padding:12px;
       border-radius:8px;
-      background:#555; /* gris oscuro por defecto */
+      background:#222; /* gris muy oscuro */
       border:none;
       color:white;
       cursor:pointer;
@@ -83,11 +83,11 @@
     }
     #btnAudio.speaking {
       animation: pulseBtn 1s infinite alternate;
-      background:#00f; /* azul eléctrico mientras lee */
+      background:#00ff00; /* verde mientras lee */
     }
     @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #00f; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f; }
+      0% { transform: scale(1); box-shadow: 0 0 10px #00ff00; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #00ff00; }
     }
 
     .rayo {
@@ -159,15 +159,15 @@
           if(!sections[tag]) sections[tag] = [];
           if(rest) sections[tag].push(rest);
         } else {
-          if(!sections["Descripción"]) sections["Descripción"]=[];
-          if(p) sections["Descripción"].push(p);
+          if(!sections["Información"]) sections["Información"]=[];
+          if(p) sections["Información"].push(p);
         }
       });
 
       const out = [];
-      if(sections["Descripción"]) { 
-        out.push({ tag: "Descripción", text: sections["Descripción"].slice(0,2).join(" ") });
-        delete sections["Descripción"];
+      if(sections["Información"]) { 
+        out.push({ tag: "Información", text: sections["Información"].slice(0,3).join(" ") }); // más detalles
+        delete sections["Información"];
       }
 
       PREFERRED.forEach(tag => {
@@ -176,9 +176,9 @@
 
       Object.keys(sections).forEach(k => { if(sections[k].length) out.push({ tag: k, text: sections[k].join(" ") }); });
 
-      const limited = out.slice(0,5).map(s => ({ tag: s.tag, text: s.text.length>300 ? s.text.slice(0,297)+"…" : s.text }));
+      const limited = out.slice(0,5).map(s => ({ tag: s.tag, text: s.text.length>400 ? s.text.slice(0,397)+"…" : s.text }));
       const html = limited.map(s => `<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = limited.map(s => s.text);
+      const parasForTTS = limited.map(s => s.tag + ": " + s.text); // incluye etiquetas
       return { html, parasForTTS };
     }
 
@@ -187,11 +187,13 @@
       screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
       btnAudioEl.style.display = "none";
       btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.background="#222";
     }
     function showError(msg){
       screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
       btnAudioEl.style.display = "none";
       btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.background="#222";
     }
 
     async function buscarPokemon(nombre){
@@ -215,6 +217,7 @@
         currentParagraphIndex = 0;
         btnAudioEl.style.display = "block";
         btnAudioEl.classList.remove("speaking");
+        btnAudioEl.style.background="#222";
         speech = null;
 
       } catch(err) { console.error(err); showError("Error al conectar con el servidor."); }
@@ -233,6 +236,7 @@
       screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.background="#222";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
     });
@@ -242,8 +246,8 @@
         if(!paragraphs.length) return;
         const synth = window.speechSynthesis;
         if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#555"; }
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#00f"; }
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#222"; }
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#00ff00"; }
         } else { currentParagraphIndex=0; speakNext(); }
       });
     } else { btnAudioEl.style.display="none"; }
@@ -251,7 +255,7 @@
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.background="#555";
+        btnAudioEl.style.background="#222";
         currentParagraphIndex=0;
         if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
         if(screen) screen.scrollTop=0;
@@ -266,7 +270,7 @@
       if(currEl){ currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
       u.onend=function(){ currentParagraphIndex++; speakNext(); };
       speech=u; window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#00f"; paused=false;
+      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#00ff00"; paused=false;
     }
   })();
   </script>
