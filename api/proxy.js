@@ -1,15 +1,19 @@
 export default async function handler(req, res) {
-  const targetUrl = "https://pokeasistente-ia-generative.vercel.app";
+  try {
+    const targetBase = "https://pokeasistente-ia-generative.vercel.app"; // 👈 tu dominio principal
+    const url = `${targetBase}/api/pokemon`;
 
-  const response = await fetch(targetUrl + req.url, {
-    method: req.method,
-    headers: req.headers,
-    body: req.method === "GET" ? undefined : req.body,
-  });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body)
+    });
 
-  const data = await response.text();
+    const data = await response.json();
+    res.status(response.status).json(data);
 
-  res.status(response.status);
-  res.setHeader("Content-Type", response.headers.get("content-type") || "text/plain");
-  res.send(data);
+  } catch (error) {
+    console.error("Error en proxy:", error);
+    res.status(500).json({ error: "Error al conectar con la API principal" });
+  }
 }
