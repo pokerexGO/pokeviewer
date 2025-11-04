@@ -60,7 +60,7 @@
 
     #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.3s; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(102,187,102,0.3); border-radius:6px; }
+    .highlight { background: rgba(255,165,0,0.3); border-radius:6px; } /* naranja translúcido */
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -155,7 +155,8 @@
       paras.forEach(p=>{
         const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
         if(m){
-          const tag=m[1].trim();
+          let tag=m[1].trim();
+          if(tag.toLowerCase().includes("ataques recomendados")) tag="Ataques"; // eliminar recomendado
           const content=m[2].trim();
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
@@ -165,7 +166,7 @@
         }
       });
 
-      // Eliminar cualquier texto genérico que empiece con "Aquí tienes"
+      // Forzar que no queden vacíos
       Object.keys(sections).forEach(tag=>{
         sections[tag] = sections[tag].filter(line => !/^Aquí tienes/i.test(line));
         if(sections[tag].length===0) sections[tag]=["Información no disponible"];
@@ -176,7 +177,7 @@
         if(sections[tag] && sections[tag].length) out.push({tag, text:sections[tag].join(" ")});
       });
       const html=out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS=out.map(s=>s.tag+": "+s.text);
+      const parasForTTS=out.map(s=>s.tag+": "+s.text); // etiquetas también se leen
       return {html, parasForTTS};
     }
 
