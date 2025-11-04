@@ -53,7 +53,7 @@
       border:3px solid var(--border);
       padding:14px;
       min-height:300px;
-      max-height:58vh;
+      max-height:65vh; /* Aumentado para ocupar más espacio */
       width:100%;
       overflow:auto;
       box-sizing:border-box;
@@ -107,7 +107,7 @@
     @media (max-width:420px) {
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
-      .screen-container { min-height:280px; max-height:50vh; width:100%; }
+      .screen-container { min-height:280px; max-height:60vh; width:100%; }
       input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
     }
   </style>
@@ -225,9 +225,9 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
-        // ✅ Ajuste final: ancho del cuadro de texto más amplio, pero limitado en altura
+        // ✅ Ajuste final: cuadro más grande verticalmente sin tapar título o botones
+        screenContainer.style.maxHeight = (window.innerHeight*0.65) + "px";
         screenContainer.style.width = "100%";
-        screenContainer.style.maxHeight = (window.innerHeight*0.55) + "px";
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
