@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PokeViewer</title>
   <style>
     :root {
@@ -13,162 +13,478 @@
       --border-color: #30363d;
       --button-bg: #ffcc00;
       --button-text: #0d1117;
+      --muted: #9aa4b2;
     }
 
+    /* Layout */
+    html,body { height: 100%; margin: 0; padding: 0; }
     body {
       margin: 0;
-      padding: 0;
       font-family: "Poppins", Arial, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-color);
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    /* Container card */
+    .card {
+      width: 100%;
+      max-width: 740px;
+      background-color: linear-gradient(180deg, var(--card-bg), #0b0d10);
+      border-radius: 16px;
+      padding: 24px;
+      box-sizing: border-box;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 20px;
+    }
+
+    /* Header with animated lightning */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .title {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.8rem;
+      color: var(--accent);
+      text-shadow: 0 0 12px #ffcc0088;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Lightning icons (pseudo) */
+    .title .bolt {
+      width: 28px;
+      height: 28px;
+      display: inline-block;
+      background: linear-gradient(180deg, #fff8b0, #ffcc00);
+      clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+      opacity: 0.9;
+    }
+
+    /* soft blinking animation */
+    @keyframes boltPulse {
+      0% { opacity: 0.2; transform: scale(0.92) translateY(0); filter: blur(0px); }
+      50% { opacity: 1; transform: scale(1.05) translateY(-2px); filter: blur(0.2px); }
+      100% { opacity: 0.3; transform: scale(0.95) translateY(0); filter: blur(0px); }
+    }
+    .title .bolt.left { animation: boltPulse 2.2s ease-in-out infinite; animation-delay: 0s; }
+    .title .bolt.right { animation: boltPulse 2.2s ease-in-out infinite; animation-delay: 0.6s; }
+
+    /* Left column (controls and description) */
+    .left {
       display: flex;
       flex-direction: column;
+      gap: 14px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
       align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
-      padding: 30px 15px;
+      justify-content: center;
     }
 
-    h1 {
-      font-size: 2rem;
-      color: var(--accent);
-      text-shadow: 0 0 10px #ffcc00aa;
-      margin-bottom: 20px;
-    }
-
-    .card {
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 20px;
+    input[type="text"] {
       width: 100%;
-      max-width: 420px;
-      box-shadow: 0 0 12px rgba(255, 204, 0, 0.1);
-      animation: fadeIn 0.6s ease-out;
-    }
-
-    input {
-      width: 70%;
-      padding: 10px;
-      font-size: 1rem;
-      border-radius: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
       border: 1px solid var(--border-color);
-      background-color: #0d1117;
+      background: #0b1116;
       color: var(--text-color);
       outline: none;
+      font-size: 1rem;
+      box-sizing: border-box;
     }
 
-    button {
-      background-color: var(--button-bg);
+    .btn {
+      background: var(--button-bg);
       color: var(--button-text);
       border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
       cursor: pointer;
+      transition: transform .12s ease, filter .12s ease;
+      box-shadow: 0 6px 18px rgba(255,204,0,0.08);
+    }
+    .btn:active { transform: translateY(1px) scale(0.995); }
+    .btn.secondary {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--muted);
       font-weight: 600;
-      transition: all 0.3s ease;
     }
 
-    button:hover {
-      background-color: #ffd633;
-      transform: scale(1.05);
-    }
-
-    img {
-      width: 160px;
-      margin-top: 15px;
-      animation: fadeIn 0.6s ease;
-    }
-
-    #resultado {
-      text-align: left;
-      margin-top: 20px;
+    /* Screen (results) */
+    .screen {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.02);
+      min-height: 140px;
+      color: var(--text-color);
+      overflow-y: auto;
       font-size: 0.95rem;
       line-height: 1.5;
     }
 
-    .tag {
-      color: var(--accent);
-      font-weight: bold;
+    .pokemon-img {
+      width: 160px;
+      height: 160px;
+      display: block;
+      margin: 12px auto;
+      image-rendering: pixelated;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      animation: float 2.2s ease-in-out infinite;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+    }
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0px); }
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+    #resultado p { margin: 10px 0; }
+
+    .tag {
+      color: var(--button-text);
+      background: var(--button-bg);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      margin-right: 6px;
+      display: inline-block;
+      font-size: 0.86rem;
+    }
+
+    .highlight {
+      background: rgba(255,204,0,0.12);
+      border-radius: 6px;
+      transition: background .18s ease;
+    }
+
+    /* Right column (quick info / controls) */
+    .right {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 8px;
+    }
+
+    .mini-card {
+      width: 100%;
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.02);
+      text-align: center;
+    }
+
+    .audio-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: none;
+      font-weight: 700;
+      color: var(--text-color);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      border: 1px solid var(--border-color);
+    }
+    .audio-btn.speaking {
+      background: linear-gradient(90deg, rgba(255,204,0,0.12), rgba(255,204,0,0.06));
+      box-shadow: 0 6px 22px rgba(255,204,0,0.06);
     }
 
     footer {
-      margin-top: 30px;
-      font-size: 0.8rem;
-      opacity: 0.6;
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .card { grid-template-columns: 1fr; padding: 18px; }
+      .right { order: 3; }
     }
   </style>
 </head>
 <body>
-
-  <h1>⚡ PokeViewer ⚡</h1>
-  <div class="card">
-    <input type="text" id="pokemonInput" placeholder="Escribe el nombre del Pokémon..." />
-    <button onclick="buscarPokemon()">Buscar</button>
-
-    <div id="resultado">
-      <p>💬 Ingresa un nombre para comenzar la búsqueda.</p>
+  <div class="card" role="main" aria-label="PokeViewer">
+    <div class="header">
+      <div class="title" aria-hidden="false">
+        <span class="bolt left" aria-hidden="true"></span>
+        <span>PokeViewer</span>
+        <span class="bolt right" aria-hidden="true"></span>
+      </div>
     </div>
+
+    <div class="left">
+      <div class="search-row" role="search" aria-label="Buscar Pokémon">
+        <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" aria-label="Nombre del Pokémon" />
+        <button id="buscarBtn" class="btn">Buscar</button>
+        <button id="clearBtn" class="btn secondary" title="Limpiar">Limpiar</button>
+      </div>
+
+      <div class="screen" id="screen" aria-live="polite">
+        <p>💬 Ingresa el nombre de un Pokémon y pulsa Buscar.</p>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="mini-card">
+        <div id="miniSpriteWrapper">
+          <img id="miniSprite" src="" alt="" style="display:none; width:120px; height:120px; border-radius:8px;" />
+        </div>
+        <div id="miniName" style="margin-top:8px; font-weight:700; color:var(--accent);"></div>
+      </div>
+
+      <div class="mini-card">
+        <button id="btnAudio" class="audio-btn" style="display:none;">🔊 Reproducir</button>
+      </div>
+
+      <div class="mini-card" style="font-size:0.9rem; color:var(--muted);">
+        Integrado con IA y PokeAPI
+      </div>
+    </div>
+
+    <footer>© PokeViewer — integrado con Gemini</footer>
   </div>
 
-  <footer>Integrado con IA Gemini y PokeAPI</footer>
-
   <script>
-  async function buscarPokemon() {
-    const nombre = document.getElementById("pokemonInput").value.trim().toLowerCase();
-    const resultadoDiv = document.getElementById("resultado");
+  /***********************
+   * LÓGICA DE BÚSQUEDA
+   ***********************/
+  (function () {
+    // Elementos
+    const input = document.getElementById('pokemonInput');
+    const buscarBtn = document.getElementById('buscarBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const screen = document.getElementById('screen');
+    const btnAudioEl = document.getElementById('btnAudio');
+    const miniSprite = document.getElementById('miniSprite');
+    const miniName = document.getElementById('miniName');
 
-    if (!nombre) {
-      resultadoDiv.innerHTML = "<p>⚠️ Escribe el nombre de un Pokémon.</p>";
-      return;
+    // TTS state
+    let speech = null;
+    let paused = false;
+    let currentParagraphIndex = 0;
+    let paragraphs = [];
+    let paragraphElements = [];
+
+    // Helper: format text (same tags as tu proyecto original)
+    function formatText(text) {
+      if (!text) return "Sin respuesta del modelo.";
+      const parts = text.split(/\n+/).filter(p => p.trim() !== "");
+      const tags = ["Tipo","Tipos","Habilidad","Habilidades","Debilidad","Debilidades","Ataque","Ataques","Estrategia","Estrategias","Consejo","Consejos","Evolución","Evoluciones","Movimientos","Resistencia","Ventaja","Fortaleza","Fortalezas","Debilidad Frente A","Recomendación","Notas"];
+      return parts.map(p => {
+        tags.forEach(tag => {
+          const regex = new RegExp("(" + tag + "):", "gi");
+          p = p.replace(regex, "<span class='tag'>" + tag + "</span>:");
+        });
+        return "<p>" + p + "</p>";
+      }).join("");
     }
 
-    resultadoDiv.innerHTML = "<p>⏳ Buscando información sobre <strong>" + nombre + "</strong>...</p>";
+    // Visual helpers
+    function showLoading(name) {
+      screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + name + "</strong>...</p>";
+      btnAudioEl.style.display = "none";
+      miniSprite.style.display = "none";
+      miniName.textContent = "";
+    }
 
-    try {
-      const respuesta = await fetch("/api/proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pokemon: nombre })
-      });
+    function showError(msg) {
+      screen.innerHTML = "<p>❌ " + msg + "</p>";
+    }
 
-      const data = await respuesta.json();
+    // Perform search through proxy (POST /api/proxy)
+    async function buscarPokemon(nombre) {
+      if (!nombre) return;
+      showLoading(nombre);
 
-      if (data.error) {
-        resultadoDiv.innerHTML = `<p>❌ Error: ${data.error}</p>`;
+      try {
+        const resp = await fetch("/api/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pokemon: nombre })
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text().catch(()=>"Error al conectar con proxy");
+          showError("Error en proxy: " + errText);
+          return;
+        }
+
+        const data = await resp.json();
+
+        if (data.error || !data.respuesta) {
+          showError(data.error || "No se pudo obtener información.");
+          return;
+        }
+
+        // Mostrar sprite si existe
+        const sprite = data.sprite || "";
+        if (sprite) {
+          miniSprite.src = sprite;
+          miniSprite.alt = nombre;
+          miniSprite.style.display = "block";
+        } else {
+          miniSprite.style.display = "none";
+        }
+        miniName.textContent = nombre.toUpperCase();
+
+        // Mostrar resultado formateado
+        screen.innerHTML = `
+          ${sprite ? `<img src="${sprite}" alt="${nombre}" class="pokemon-img">` : ""}
+          <h2 style="text-align:center; color:var(--accent); margin:8px 0;">${nombre.toUpperCase()}</h2>
+          <div id="resultado">${formatText(data.respuesta)}</div>
+        `;
+
+        // Prepare TTS paragraphs
+        paragraphs = (data.respuesta || "").replace(/[\*\/]/g, "").split(/\n+/).filter(p => p.trim() !== "");
+        paragraphElements = document.querySelectorAll("#resultado p");
+        currentParagraphIndex = 0;
+        btnAudioEl.style.display = "inline-flex";
+        btnAudioEl.classList.remove("speaking");
+        speech = null;
+
+      } catch (err) {
+        console.error("Error en búsqueda:", err);
+        showError("Error al conectar con el servidor proxy.");
+      }
+    }
+
+    // Button listeners
+    buscarBtn.addEventListener("click", function () {
+      const nombre = (input.value || "").trim().toLowerCase();
+      if (!nombre) {
+        alert("Ingresa un nombre de Pokémon");
         return;
       }
+      buscarPokemon(nombre);
+    });
 
-      resultadoDiv.innerHTML = `
-        ${data.sprite ? `<img src="${data.sprite}" alt="${nombre}">` : ""}
-        <h2>${nombre.toUpperCase()}</h2>
-        <div id="descripcion">${formatText(data.respuesta || "Sin respuesta del modelo.")}</div>
-      `;
-    } catch (err) {
-      resultadoDiv.innerHTML = "<p>⚠️ Error al conectar con el servidor proxy.</p>";
-      console.error(err);
-    }
-  }
-
-  function formatText(text) {
-    if (!text) return "Sin respuesta del modelo.";
-    const paragraphs = text.split(/\\n+/).filter(p => p.trim() !== "");
-    const tags = ["Tipo","Tipos","Habilidad","Habilidades","Debilidad","Debilidades","Ataque","Ataques","Estrategia","Estrategias","Consejo","Consejos","Evolución","Evoluciones","Movimientos","Resistencia","Ventaja","Fortaleza","Fortalezas","Recomendación","Notas"];
-
-    return paragraphs.map(function(p) {
-      for (let tag of tags) {
-        const regex = new RegExp("(" + tag + "):", "gi");
-        p = p.replace(regex, "<span class='tag'>" + tag + "</span>:");
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        buscarBtn.click();
       }
-      return "<p>" + p + "</p>";
-    }).join("");
-  }
+    });
+
+    clearBtn.addEventListener("click", function () {
+      input.value = "";
+      screen.innerHTML = "<p>💬 Ingresa el nombre de un Pokémon y pulsa Buscar.</p>";
+      miniSprite.style.display = "none";
+      miniName.textContent = "";
+      btnAudioEl.style.display = "none";
+      paragraphs = [];
+      paragraphElements = [];
+      currentParagraphIndex = 0;
+      paused = false;
+      if (speech && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    });
+
+    /******************************
+     * TTS: reproducir / pausar
+     ******************************/
+    if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+      btnAudioEl.addEventListener("click", function () {
+        if (!paragraphs.length) return;
+        const synth = window.speechSynthesis;
+        if (synth.speaking || paused) {
+          if (!paused) {
+            synth.pause();
+            paused = true;
+            btnAudioEl.classList.remove("speaking");
+          } else {
+            synth.resume();
+            paused = false;
+            btnAudioEl.classList.add("speaking");
+          }
+        } else {
+          currentParagraphIndex = 0;
+          speakNext();
+        }
+      });
+    } else {
+      btnAudioEl.style.display = "none";
+      console.warn("TTS no disponible en este entorno.");
+    }
+
+    function speakNext() {
+      if (currentParagraphIndex >= paragraphs.length) {
+        btnAudioEl.classList.remove("speaking");
+        currentParagraphIndex = 0;
+        paragraphElements.forEach(p => p.classList.remove("highlight"));
+        if (paragraphElements[0]) paragraphElements[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        speech = null;
+        return;
+      }
+      const paragraph = paragraphs[currentParagraphIndex];
+      const utterance = new SpeechSynthesisUtterance(paragraph);
+      utterance.lang = 'es-ES';
+      paragraphElements.forEach(p => p.classList.remove('highlight'));
+      const currentEl = paragraphElements[currentParagraphIndex];
+      if (currentEl) {
+        currentEl.classList.add('highlight');
+        currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      utterance.onend = function () { currentParagraphIndex++; speakNext(); };
+      speech = utterance;
+      window.speechSynthesis.speak(speech);
+      btnAudioEl.classList.add('speaking');
+      paused = false;
+    }
+
+    // Expose buscar (useful if other code clicks)
+    window.buscarPokemon = function(nombre) {
+      if (!nombre) return;
+      buscarPokemon(nombre.toLowerCase());
+    };
+
+    // Compatibility: load small polyfills if environment is old (AppCreator webview)
+    (function ensurePolyfills() {
+      const needs = (!window.fetch || !window.Promise || !window.TextDecoder || !window.TextEncoder);
+      if (needs) {
+        // load minimal fetch/promise polyfills (CDN)
+        const p = document.createElement('script');
+        p.src = "https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js";
+        document.head.appendChild(p);
+        const f = document.createElement('script');
+        f.src = "https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js";
+        document.head.appendChild(f);
+      }
+    })();
+
+  })();
   </script>
 </body>
 </html>
