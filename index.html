@@ -59,16 +59,19 @@
       box-sizing:border-box;
     }
 
-    /* 🔧 Fondo del Pokémon transparente */
-    .pokemon-img { 
-      width:160px; 
-      height:160px; 
-      display:block; 
-      margin:10px auto; 
-      border-radius:8px; 
-      background:transparent !important;  /* antes: var(--glass) */
-      animation:float 2.2s ease-in-out infinite; 
+    /* 🔧 Fondo del Pokémon transparente (solo cambio) */
+    .pokemon-img {
+      width:160px;
+      height:160px;
+      display:block;
+      margin:10px auto;
+      border-radius:8px;
+      animation:float 2.2s ease-in-out infinite;
+      background: transparent !important; /* <-- aquí solo se cambió */
+      object-fit: contain;
+      image-rendering: -webkit-optimize-contrast;
     }
+
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
     #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; }
@@ -133,9 +136,187 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- tu script JS original sin cambios -->
   <script>
-  // (todo el código JavaScript queda exactamente igual)
+  (function () {
+    // Elements
+    const input = document.getElementById('pokemonInput');
+    const buscarBtn = document.getElementById('buscarBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const screen = document.getElementById('screen');
+    const btnAudioEl = document.getElementById('btnAudio');
+
+    let speech = null, paused = false, currentParagraphIndex = 0, paragraphs = [], paragraphElements = [];
+
+    // Helper: escape
+    function esc(s){ return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
+
+    // Split paragraphs
+    function splitParagraphs(text) {
+      if (!text) return [];
+      return text.replace(/[\*\/]/g,"").split(/\n+/).map(p => p.trim()).filter(p => p);
+    }
+
+    // Organize & shorten the response into ordered sections
+    const PREFERRED = ["Tipo","Fortalezas","Debilidades","Ataques recomendados","Ataques","Movimientos","Estrategia","Recomendación"];
+
+    function organize(text) {
+      const paras = splitParagraphs(text);
+      const sections = {};
+      paras.forEach(p => {
+        const m = p.match(/^([^:]{2,40}):\s*(.*)$/);
+        if (m) {
+          const tag = m[1].trim();
+          const rest = m[2].trim();
+          if (!sections[tag]) sections[tag] = [];
+          sections[tag].push(rest);
+        } else {
+          if (!sections["Descripción"]) sections["Descripción"] = [];
+          sections["Descripción"].push(p);
+        }
+      });
+
+      const out = [];
+      // prefer Description first
+      if (sections["Descripción"]) {
+        out.push({ tag: "Descripción", text: sections["Descripción"].slice(0,2).join(" ") });
+        delete sections["Descripción"];
+      }
+      // preferred tags
+      PREFERRED.forEach(tag => {
+        if (sections[tag]) { out.push({ tag, text: sections[tag].join(" ") }); delete sections[tag]; }
+      });
+      // leftover
+      Object.keys(sections).forEach(k => out.push({ tag: k, text: sections[k].join(" ") }));
+
+      // limit length: keep first 5 sections and truncate texts to ~160 chars
+      const limited = out.slice(0,5).map(s => ({ tag: s.tag, text: s.text.length>200 ? s.text.slice(0,197)+"…" : s.text }));
+      // build html and paragraphs for TTS
+      const html = limited.map(s => `<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
+      const parasForTTS = limited.map(s => s.text);
+      return { html, parasForTTS };
+    }
+
+    function showLoading(name){
+      screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
+      btnAudioEl.style.display = "none";
+    }
+    function showError(msg){
+      screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
+      btnAudioEl.style.display = "none";
+    }
+
+    // Main search using visor proxy
+    async function buscarPokemon(nombre){
+      if (!nombre) return;
+      showLoading(nombre);
+
+      try {
+        const resp = await fetch("/api/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pokemon: nombre })
+        });
+
+        if (!resp.ok) {
+          const t = await resp.text().catch(()=>"");
+          showError("Error en proxy: "+ (t || resp.status));
+          return;
+        }
+
+        const data = await resp.json();
+        if (data.error || !data.respuesta) {
+          showError(data.error || "No se recibió respuesta de la IA.");
+          return;
+        }
+
+        const sprite = data.sprite || "";
+        const organized = organize(data.respuesta);
+
+        // render
+        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"") +
+                           `<h2 style="text-align:center; color:${"--accent"}">${esc(nombre.toUpperCase())}</h2>` +
+                           `<div id="resultado">${organized.html}</div>`;
+
+        // prepare TTS
+        paragraphs = organized.parasForTTS.length ? organized.parasForTTS : splitParagraphs(data.respuesta).slice(0,5);
+        paragraphElements = document.querySelectorAll("#resultado p");
+        currentParagraphIndex = 0;
+        btnAudioEl.style.display = "block";
+        btnAudioEl.classList.remove("speaking");
+        speech = null;
+
+      } catch (err) {
+        console.error(err);
+        showError("Error al conectar con el servidor proxy.");
+      }
+    }
+
+    // Events
+    buscarBtn.addEventListener("click", function () {
+      const nombre = (input.value||"").trim().toLowerCase();
+      if (!nombre) { alert("Ingresa un nombre de Pokémon"); return; }
+      buscarPokemon(nombre);
+    });
+
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") { e.preventDefault(); buscarBtn.click(); }
+    });
+
+    clearBtn.addEventListener("click", function(){
+      input.value = "";
+      screen.innerHTML = `<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
+      btnAudioEl.style.display = "none";
+      paragraphs = []; paragraphElements = []; currentParagraphIndex = 0; paused = false;
+      if (speech && window.speechSynthesis) window.speechSynthesis.cancel();
+    });
+
+    // TTS
+    if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+      btnAudioEl.addEventListener("click", function(){
+        if (!paragraphs.length) return;
+        const synth = window.speechSynthesis;
+        if (synth.speaking || paused) {
+          if (!paused) { synth.pause(); paused = true; btnAudioEl.classList.remove("speaking"); }
+          else { synth.resume(); paused = false; btnAudioEl.classList.add("speaking"); }
+        } else {
+          currentParagraphIndex = 0; speakNext();
+        }
+      });
+    } else {
+      btnAudioEl.style.display = "none";
+    }
+
+    function speakNext(){
+      if (currentParagraphIndex >= paragraphs.length) {
+        btnAudioEl.classList.remove("speaking");
+        currentParagraphIndex = 0;
+        if (paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        speech = null; return;
+      }
+      const paragraph = paragraphs[currentParagraphIndex];
+      const u = new SpeechSynthesisUtterance(paragraph);
+      u.lang = 'es-ES';
+      if (paragraphElements) paragraphElements.forEach(p=>p.classList.remove('highlight'));
+      const currEl = paragraphElements[currentParagraphIndex];
+      if (currEl) { currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
+      u.onend = function(){ currentParagraphIndex++; speakNext(); };
+      speech = u; window.speechSynthesis.speak(u);
+      btnAudioEl.classList.add('speaking'); paused = false;
+    }
+
+    // expose
+    window.buscarPokemon = function(nombre){ if(!nombre) return; buscarPokemon(String(nombre).toLowerCase()); };
+
+    // polyfills if needed (AppCreator older webview)
+    (function ensurePolyfills(){
+      const need = (!window.fetch || !window.Promise || !window.TextDecoder || !window.TextEncoder);
+      if (need) {
+        const p = document.createElement('script'); p.src = "https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"; document.head.appendChild(p);
+        const f = document.createElement('script'); f.src = "https://cdn.jsdelivr.net/npm/whatwg-fetch@3.6.2/dist/fetch.umd.min.js"; document.head.appendChild(f);
+      }
+    })();
+
+  })();
   </script>
 </body>
 </html>
