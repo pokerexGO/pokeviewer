@@ -149,8 +149,7 @@
     const btnAudioEl = document.getElementById('btnAudio');
 
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
-    let speech=null, paused=false;
-    let highlightInterval=null;
+    let speaking=false, highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -185,7 +184,7 @@
     }
 
     function showLoading(name){
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
+      if('speechSynthesis' in window) window.speechSynthesis.cancel();
       screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
@@ -223,7 +222,6 @@
         btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
-        speech=null;
 
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
@@ -235,7 +233,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      if('speechSynthesis' in window) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -247,84 +245,29 @@
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; 
+      if('speechSynthesis' in window) window.speechSynthesis.cancel();
       clearInterval(highlightInterval);
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
 
-    // --- BLOQUE DE AUDIO AJUSTADO PARA NAVEGADORES Y APPCREATOR24 ---
-    btnAudioEl.addEventListener("click", async ()=>{
+    // --- NUEVO MÉTODO DE VOZ USANDO SPEECHSYNTHESIS ---
+    function hablar(texto) {
+      if('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(texto);
+        msg.lang = 'es-ES';
+        window.speechSynthesis.speak(msg);
+      } else {
+        alert("Audio no disponible en AppCreator24.");
+      }
+    }
+
+    btnAudioEl.addEventListener("click", ()=>{
       if(!paragraphs.length) return;
-
-      // Si ya hay audio reproduciéndose
-      if(speech){ speech.pause(); speech=null; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval); return; }
-
-      const textoCompleto = paragraphs.join(". ");
-      btnAudioEl.classList.add("speaking");
-      btnAudioEl.style.border="2px solid #00f0ff";
-
-      try {
-        // Detectar si es AppCreator24
-        const isAppCreator = /appcreator/i.test(navigator.userAgent);
-        if(!isAppCreator && window.speechSynthesis){ 
-          // Navegadores normales: usar SpeechSynthesis
-          const utter = new SpeechSynthesisUtterance(textoCompleto);
-          utter.lang = "es-ES";
-          speech = utter;
-          speechSynthesis.speak(utter);
-          let idx=0;
-          highlightInterval = setInterval(()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            if(idx<paragraphElements.length){
-              paragraphElements[idx].classList.add("highlight");
-              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
-              idx++;
-            }
-          }, 500);
-          utter.onend = ()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            btnAudioEl.classList.remove("speaking");
-            btnAudioEl.style.border="2px solid transparent";
-            clearInterval(highlightInterval);
-            speech=null;
-          }
-        } else {
-          // AppCreator24: usar TTS vía /api/tts
-          const resp = await fetch("/api/tts", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({text:textoCompleto})
-          });
-          const data = await resp.json();
-          if(!data.audioBase64){ console.error("No se recibió audio TTS"); return; }
-
-          const audio = new Audio(data.audioBase64);
-          speech = audio;
-          audio.play();
-
-          let idx=0;
-          highlightInterval = setInterval(()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            if(idx<paragraphElements.length){
-              paragraphElements[idx].classList.add("highlight");
-              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
-              idx++;
-            }
-          }, 300);
-
-          audio.onended = ()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            btnAudioEl.classList.remove("speaking");
-            btnAudioEl.style.border="2px solid transparent";
-            clearInterval(highlightInterval);
-            speech=null;
-          }
-        }
-
-      } catch(err){ console.error("Error TTS:", err); btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; }
+      hablar(paragraphs.join(". "));
     });
 
   })();
