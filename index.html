@@ -145,42 +145,47 @@
 
     function esc(s){ return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
 
-    const PREFERRED = ["Tipo","Fortalezas","Debilidades","Ataques","Movimientos","Estrategia","Recomendación"];
+    function splitText(text){
+      if(!text) return [];
+      return text.replace(/[*\/]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l);
+    }
 
-    function organize(data) {
-      const infoParts = [];
-      if(data.descripcion) infoParts.push(data.descripcion);
-      if(data.tipo) infoParts.push("Tipo: " + data.tipo.join(", "));
-      if(data.altura && data.peso) infoParts.push(`Altura: ${data.altura} m, Peso: ${data.peso} kg`);
-      const sections = {"Información": infoParts};
-
-      if(data.ataques && data.ataques.length) sections["Ataques"]=data.ataques;
-      if(data.movimientos && data.movimientos.length) sections["Movimientos"]=data.movimientos;
-      if(data.estrategia) sections["Estrategia"]=[data.estrategia];
-      if(data.recomendacion) sections["Recomendación"]=[data.recomendacion];
-
+    function organize(text){
+      const paras = splitText(text);
+      const sections = {};
+      paras.forEach(p=>{
+        const m = p.match(/^([^:]{2,40}):\s*(.*)$/);
+        if(m){
+          const tag = m[1].trim();
+          const content = m[2].trim();
+          if(!sections[tag]) sections[tag]=[];
+          sections[tag].push(content);
+        } else {
+          if(!sections["Información"]) sections["Información"]=[];
+          sections["Información"].push(p);
+        }
+      });
       const out = [];
       Object.keys(sections).forEach(tag=>{
-        if(sections[tag] && sections[tag].length)
-          out.push({tag, text: sections[tag].join(" ")});
+        if(sections[tag] && sections[tag].length) out.push({tag, text: sections[tag].join(" ")});
       });
-
-      const limited = out.slice(0,6).map(s => ({ tag: s.tag, text: s.text.length>400 ? s.text.slice(0,397)+"…" : s.text }));
-      const html = limited.map(s => `<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = limited.map(s => s.tag + ": " + s.text); // leer etiquetas
-      return { html, parasForTTS };
+      const limited = out.map(s=>({tag:s.tag, text:s.text.length>400?s.text.slice(0,397)+"…":s.text}));
+      const html = limited.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
+      const parasForTTS = limited.map(s=>s.tag+": "+s.text);
+      return {html, parasForTTS};
     }
 
     function showLoading(name){
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
-      btnAudioEl.style.display = "none";
+      btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.background="#111";
     }
+
     function showError(msg){
       screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
-      btnAudioEl.style.display = "none";
+      btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.background="#111";
     }
@@ -201,15 +206,15 @@
                            `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>` +
                            `<div id="resultado">${organized.html}</div>`;
 
-        paragraphs = organized.parasForTTS.length ? organized.parasForTTS : [];
+        paragraphs = organized.parasForTTS;
         paragraphElements = document.querySelectorAll("#resultado p");
         currentParagraphIndex = 0;
-        btnAudioEl.style.display = "block";
+        btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.background="#111";
         speech = null;
 
-      } catch(err) { console.error(err); showError("Error al conectar con el servidor."); }
+      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
     buscarBtn.addEventListener("click", function(){ 
