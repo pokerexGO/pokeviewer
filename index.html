@@ -58,9 +58,9 @@
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
-    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; }
+    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.3s; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(0,255,0,0.3); border-radius:6px; transition:background .18s; }
+    .highlight { background: rgba(85,187,85,0.3); border-radius:6px; }
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -73,7 +73,7 @@
       width:100%;
       padding:12px;
       border-radius:8px;
-      background:#222; /* gris muy oscuro */
+      background:#111; /* gris oscuro más intenso */
       border:none;
       color:white;
       cursor:pointer;
@@ -83,11 +83,11 @@
     }
     #btnAudio.speaking {
       animation: pulseBtn 1s infinite alternate;
-      background:#00ff00; /* verde mientras lee */
+      background:#66bb66; /* verde suave */
     }
     @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #00ff00; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #00ff00; }
+      0% { transform: scale(1); box-shadow: 0 0 10px #66bb66; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #66bb66; }
     }
 
     .rayo {
@@ -114,11 +114,10 @@
     </div>
 
     <div class="pokedex">
-      <div class="screen-container">
+      <div class="screen-container" id="screenContainer">
         <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
 
-      <!-- Botón Leer arriba de Buscar/Limpiar -->
       <button id="btnAudio">🔊 Leer</button>
 
       <div class="controls">
@@ -139,6 +138,7 @@
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
     const screen = document.getElementById('screen');
+    const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
     let speech = null, paused = false, currentParagraphIndex = 0, paragraphs = [], paragraphElements = [];
@@ -147,38 +147,27 @@
 
     const PREFERRED = ["Tipo","Fortalezas","Debilidades","Ataques","Movimientos","Estrategia","Recomendación"];
 
-    function organize(text) {
-      const paras = text.replace(/[#*\/]/g,"").split(/\n+/).map(p => p.trim()).filter(p => p);
-      const sections = {};
-      paras.forEach(p => {
-        const m = p.match(/^([^:]{2,40}):\s*(.*)$/);
-        if (m) {
-          let tag = m[1].trim();
-          let rest = m[2].trim();
-          if(tag === "Ataques recomendados") tag = "Ataques";
-          if(!sections[tag]) sections[tag] = [];
-          if(rest) sections[tag].push(rest);
-        } else {
-          if(!sections["Información"]) sections["Información"]=[];
-          if(p) sections["Información"].push(p);
-        }
-      });
+    function organize(data) {
+      const infoParts = [];
+      if(data.descripcion) infoParts.push(data.descripcion);
+      if(data.tipo) infoParts.push("Tipo: " + data.tipo.join(", "));
+      if(data.altura && data.peso) infoParts.push(`Altura: ${data.altura} m, Peso: ${data.peso} kg`);
+      const sections = {"Información": infoParts};
+
+      if(data.ataques && data.ataques.length) sections["Ataques"]=data.ataques;
+      if(data.movimientos && data.movimientos.length) sections["Movimientos"]=data.movimientos;
+      if(data.estrategia) sections["Estrategia"]=[data.estrategia];
+      if(data.recomendacion) sections["Recomendación"]=[data.recomendacion];
 
       const out = [];
-      if(sections["Información"]) { 
-        out.push({ tag: "Información", text: sections["Información"].slice(0,3).join(" ") }); // más detalles
-        delete sections["Información"];
-      }
-
-      PREFERRED.forEach(tag => {
-        if(sections[tag] && sections[tag].length) { out.push({ tag, text: sections[tag].join(" ") }); delete sections[tag]; }
+      Object.keys(sections).forEach(tag=>{
+        if(sections[tag] && sections[tag].length)
+          out.push({tag, text: sections[tag].join(" ")});
       });
 
-      Object.keys(sections).forEach(k => { if(sections[k].length) out.push({ tag: k, text: sections[k].join(" ") }); });
-
-      const limited = out.slice(0,5).map(s => ({ tag: s.tag, text: s.text.length>400 ? s.text.slice(0,397)+"…" : s.text }));
+      const limited = out.slice(0,6).map(s => ({ tag: s.tag, text: s.text.length>400 ? s.text.slice(0,397)+"…" : s.text }));
       const html = limited.map(s => `<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = limited.map(s => s.tag + ": " + s.text); // incluye etiquetas
+      const parasForTTS = limited.map(s => s.tag + ": " + s.text); // leer etiquetas
       return { html, parasForTTS };
     }
 
@@ -187,13 +176,13 @@
       screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + esc(name) + "</strong>...</p>";
       btnAudioEl.style.display = "none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#222";
+      btnAudioEl.style.background="#111";
     }
     function showError(msg){
       screen.innerHTML = "<p>❌ " + esc(msg) + "</p>";
       btnAudioEl.style.display = "none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#222";
+      btnAudioEl.style.background="#111";
     }
 
     async function buscarPokemon(nombre){
@@ -212,12 +201,12 @@
                            `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>` +
                            `<div id="resultado">${organized.html}</div>`;
 
-        paragraphs = organized.parasForTTS.length ? organized.parasForTTS : splitParagraphs(data.respuesta).slice(0,5);
+        paragraphs = organized.parasForTTS.length ? organized.parasForTTS : [];
         paragraphElements = document.querySelectorAll("#resultado p");
         currentParagraphIndex = 0;
         btnAudioEl.style.display = "block";
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.background="#222";
+        btnAudioEl.style.background="#111";
         speech = null;
 
       } catch(err) { console.error(err); showError("Error al conectar con el servidor."); }
@@ -236,7 +225,7 @@
       screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.background="#222";
+      btnAudioEl.style.background="#111";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
     });
@@ -246,8 +235,8 @@
         if(!paragraphs.length) return;
         const synth = window.speechSynthesis;
         if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#222"; }
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#00ff00"; }
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#111"; }
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#66bb66"; }
         } else { currentParagraphIndex=0; speakNext(); }
       });
     } else { btnAudioEl.style.display="none"; }
@@ -255,10 +244,10 @@
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.background="#222";
+        btnAudioEl.style.background="#111";
         currentParagraphIndex=0;
         if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screen) screen.scrollTop=0;
+        if(screenContainer) screenContainer.scrollTop=0;
         speech=null;
         return;
       }
@@ -267,10 +256,13 @@
       u.lang='es-ES';
       if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove('highlight'));
       const currEl=paragraphElements[currentParagraphIndex];
-      if(currEl){ currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
+      if(currEl){ 
+        currEl.classList.add('highlight'); 
+        currEl.scrollIntoView({behavior:'smooth', block:'center'});
+      }
       u.onend=function(){ currentParagraphIndex++; speakNext(); };
       speech=u; window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#00ff00"; paused=false;
+      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#66bb66"; paused=false;
     }
   })();
   </script>
