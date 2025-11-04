@@ -5,249 +5,102 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PokeViewer</title>
   <style>
-    :root {
-      --bg-color: #0d1117;
-      --text-color: #e6edf3;
+    :root{
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #29313a;
       --accent: #ffcc00;
-      --card-bg: #161b22;
-      --border-color: #30363d;
-      --button-bg: #ffcc00;
-      --button-text: #0d1117;
       --muted: #9aa4b2;
+      --text: #e6edf3;
+      --glass: rgba(255,255,255,0.02);
     }
 
-    /* Layout */
-    html,body { height: 100%; margin: 0; padding: 0; }
-    body {
-      margin: 0;
-      font-family: "Poppins", Arial, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-      box-sizing: border-box;
-    }
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:"Poppins",Arial,sans-serif;}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;box-sizing:border-box;}
 
-    /* Container card */
-    .card {
-      width: 100%;
-      max-width: 740px;
-      background-color: linear-gradient(180deg, var(--card-bg), #0b0d10);
-      border-radius: 16px;
-      padding: 24px;
-      box-sizing: border-box;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 20px;
-    }
-
-    /* Header with animated lightning */
-    .header {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      margin-bottom: 4px;
-    }
-    .title {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 1.8rem;
-      color: var(--accent);
-      text-shadow: 0 0 12px #ffcc0088;
-      font-weight: 700;
-      letter-spacing: 0.6px;
-      position: relative;
-      z-index: 2;
-    }
-
-    /* Lightning icons (pseudo) */
-    .title .bolt {
-      width: 28px;
-      height: 28px;
-      display: inline-block;
-      background: linear-gradient(180deg, #fff8b0, #ffcc00);
-      clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%);
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
-      opacity: 0.9;
-    }
-
-    /* soft blinking animation */
-    @keyframes boltPulse {
-      0% { opacity: 0.2; transform: scale(0.92) translateY(0); filter: blur(0px); }
-      50% { opacity: 1; transform: scale(1.05) translateY(-2px); filter: blur(0.2px); }
-      100% { opacity: 0.3; transform: scale(0.95) translateY(0); filter: blur(0px); }
-    }
-    .title .bolt.left { animation: boltPulse 2.2s ease-in-out infinite; animation-delay: 0s; }
-    .title .bolt.right { animation: boltPulse 2.2s ease-in-out infinite; animation-delay: 0.6s; }
-
-    /* Left column (controls and description) */
-    .left {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .search-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: center;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-      background: #0b1116;
-      color: var(--text-color);
-      outline: none;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    .btn {
-      background: var(--button-bg);
-      color: var(--button-text);
-      border: none;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform .12s ease, filter .12s ease;
-      box-shadow: 0 6px 18px rgba(255,204,0,0.08);
-    }
-    .btn:active { transform: translateY(1px) scale(0.995); }
-    .btn.secondary {
-      background: transparent;
-      border: 1px solid var(--border-color);
-      color: var(--muted);
-      font-weight: 600;
-    }
-
-    /* Screen (results) */
-    .screen {
+    /* Card layout like before (left + right) */
+    .card{
+      width:100%;
+      max-width:900px;
       background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-      border-radius: 12px;
-      padding: 14px;
-      border: 1px solid rgba(255,255,255,0.02);
-      min-height: 140px;
-      color: var(--text-color);
-      overflow-y: auto;
-      font-size: 0.95rem;
-      line-height: 1.5;
+      border-radius:14px;
+      padding:20px;
+      box-sizing:border-box;
+      border:1px solid var(--border);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+      display:grid;
+      grid-template-columns: 1fr 320px;
+      gap:18px;
+      align-items:start;
     }
 
-    .pokemon-img {
-      width: 160px;
-      height: 160px;
-      display: block;
-      margin: 12px auto;
-      image-rendering: pixelated;
-      border-radius: 8px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      animation: float 2.2s ease-in-out infinite;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-    }
-    @keyframes float {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-      100% { transform: translateY(0px); }
-    }
+    /* Header + animated bolts */
+    .header{grid-column:1 / -1; display:flex; align-items:center; justify-content:center; margin-bottom:6px; position:relative;}
+    .title{display:inline-flex; align-items:center; gap:12px; font-size:1.9rem; color:var(--accent); font-weight:800; text-shadow:0 0 10px #ffcc0088;}
+    .bolt{width:30px;height:30px; display:inline-block; background:linear-gradient(180deg,#fff8b0,#ffcc00); clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%); filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5)); opacity:0.95;}
+    @keyframes boltPulse {0%{opacity:0.16; transform:scale(.92) translateY(0);filter:blur(0)}50%{opacity:1; transform:scale(1.06) translateY(-2px);filter:blur(.2px)}100%{opacity:.28; transform:scale(.95) translateY(0)}}
+    .bolt.left{animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s;}
+    .bolt.right{animation:boltPulse 2.2s ease-in-out infinite; animation-delay:.6s;}
 
-    #resultado p { margin: 10px 0; }
+    /* Left column */
+    .left{display:flex; flex-direction:column; gap:12px;}
+    .search-row{display:flex; gap:10px; align-items:center;}
+    input[type="text"]{
+      flex:1; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
+      background:#0b1116; color:var(--text); font-size:1rem; outline:none; box-sizing:border-box;
+    }
+    .btn{background:var(--accent); color:#0d1117; border:none; padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(255,204,0,0.08);}
+    .btn.secondary{background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:700;}
+    .btn:active{transform:translateY(1px);}
 
-    .tag {
-      color: var(--button-text);
-      background: var(--button-bg);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 700;
-      margin-right: 6px;
-      display: inline-block;
-      font-size: 0.86rem;
+    /* Results screen */
+    .screen{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+      border-radius:12px; padding:14px; border:1px solid rgba(255,255,255,0.02);
+      min-height:180px; color:var(--text); overflow:auto; font-size:0.95rem; line-height:1.5;
     }
+    .pokemon-img{width:160px;height:160px;display:block;margin:10px auto;border-radius:8px;animation:float 2.2s ease-in-out infinite;background:var(--glass);}
+    @keyframes float{0%{transform:translateY(0);}50%{transform:translateY(-8px);}100%{transform:translateY(0);}}
 
-    .highlight {
-      background: rgba(255,204,0,0.12);
-      border-radius: 6px;
-      transition: background .18s ease;
-    }
+    #resultado p{margin:10px 0;}
 
-    /* Right column (quick info / controls) */
-    .right {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 8px;
-    }
+    .tag{display:inline-block;padding:3px 8px;border-radius:6px;font-weight:700;background:var(--accent);color:#0d1117;margin-right:6px;font-size:.86rem;}
 
-    .mini-card {
-      width: 100%;
-      background: rgba(255,255,255,0.02);
-      border-radius: 12px;
-      padding: 12px;
-      border: 1px solid rgba(255,255,255,0.02);
-      text-align: center;
-    }
+    .highlight{background:rgba(255,204,0,0.12);border-radius:6px;transition:background .18s;}
 
-    .audio-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      border: none;
-      font-weight: 700;
-      color: var(--text-color);
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-      border: 1px solid var(--border-color);
-    }
-    .audio-btn.speaking {
-      background: linear-gradient(90deg, rgba(255,204,0,0.12), rgba(255,204,0,0.06));
-      box-shadow: 0 6px 22px rgba(255,204,0,0.06);
-    }
+    /* Right column */
+    .right{display:flex; flex-direction:column; gap:12px; align-items:center; padding:6px;}
+    .mini-card{width:100%; background:var(--glass); border-radius:10px; padding:12px; border:1px solid rgba(255,255,255,0.02); text-align:center;}
+    .audio-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;cursor:pointer;border:1px solid var(--border); background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); font-weight:700;}
+    .audio-btn.speaking{background:linear-gradient(90deg, rgba(255,204,0,0.12), rgba(255,204,0,0.06)); box-shadow:0 6px 22px rgba(255,204,0,0.06);}
 
-    footer {
-      grid-column: 1 / -1;
-      color: var(--muted);
-      font-size: 0.82rem;
-      margin-top: 6px;
-      text-align: center;
-    }
+    footer{grid-column:1 / -1; color:var(--muted); font-size:0.82rem; text-align:center; margin-top:6px;}
 
     /* Responsive */
-    @media (max-width: 900px) {
-      .card { grid-template-columns: 1fr; padding: 18px; }
-      .right { order: 3; }
+    @media (max-width:880px){
+      .card{grid-template-columns:1fr; padding:16px;}
+      .right{order:3;}
     }
+
+    /* small accessibility/visibility tweaks */
+    .sr-only{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;}
   </style>
 </head>
 <body>
   <div class="card" role="main" aria-label="PokeViewer">
     <div class="header">
-      <div class="title" aria-hidden="false">
+      <div class="title" role="heading" aria-level="1">
         <span class="bolt left" aria-hidden="true"></span>
         <span>PokeViewer</span>
         <span class="bolt right" aria-hidden="true"></span>
       </div>
     </div>
 
+    <!-- LEFT: search + screen -->
     <div class="left">
       <div class="search-row" role="search" aria-label="Buscar Pokémon">
         <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" aria-label="Nombre del Pokémon" />
-        <button id="buscarBtn" class="btn">Buscar</button>
+        <button id="buscarBtn" class="btn" aria-label="Buscar">Buscar</button>
         <button id="clearBtn" class="btn secondary" title="Limpiar">Limpiar</button>
       </div>
 
@@ -256,8 +109,9 @@
       </div>
     </div>
 
-    <div class="right">
-      <div class="mini-card">
+    <!-- RIGHT: mini info and audio -->
+    <div class="right" aria-hidden="false">
+      <div class="mini-card" aria-label="Sprite">
         <div id="miniSpriteWrapper">
           <img id="miniSprite" src="" alt="" style="display:none; width:120px; height:120px; border-radius:8px;" />
         </div>
@@ -265,7 +119,7 @@
       </div>
 
       <div class="mini-card">
-        <button id="btnAudio" class="audio-btn" style="display:none;">🔊 Reproducir</button>
+        <button id="btnAudio" class="audio-btn" style="display:none;" aria-label="Reproducir audio">🔊 Reproducir</button>
       </div>
 
       <div class="mini-card" style="font-size:0.9rem; color:var(--muted);">
@@ -277,11 +131,8 @@
   </div>
 
   <script>
-  /***********************
-   * LÓGICA DE BÚSQUEDA
-   ***********************/
   (function () {
-    // Elementos
+    // Elements
     const input = document.getElementById('pokemonInput');
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
@@ -297,33 +148,88 @@
     let paragraphs = [];
     let paragraphElements = [];
 
-    // Helper: format text (same tags as tu proyecto original)
-    function formatText(text) {
-      if (!text) return "Sin respuesta del modelo.";
-      const parts = text.split(/\n+/).filter(p => p.trim() !== "");
-      const tags = ["Tipo","Tipos","Habilidad","Habilidades","Debilidad","Debilidades","Ataque","Ataques","Estrategia","Estrategias","Consejo","Consejos","Evolución","Evoluciones","Movimientos","Resistencia","Ventaja","Fortaleza","Fortalezas","Debilidad Frente A","Recomendación","Notas"];
-      return parts.map(p => {
-        tags.forEach(tag => {
-          const regex = new RegExp("(" + tag + "):", "gi");
-          p = p.replace(regex, "<span class='tag'>" + tag + "</span>:");
-        });
-        return "<p>" + p + "</p>";
-      }).join("");
+    // Tags and preferred order for display
+    const TAG_ORDER = ["Tipo","Tipos","Habilidad","Habilidades","Debilidad","Debilidades","Ataque","Ataques","Movimientos","Estrategia","Estrategias","Recomendación","Notas","Evolución","Evoluciones","Resistencia","Ventaja","Fortaleza"];
+
+    // Helper: sanitize & shorten long text - returns array of paragraphs
+    function splitParagraphs(text) {
+      if (!text) return [];
+      return text.replace(/[\*\/]/g, "").split(/\n+/).map(p => p.trim()).filter(p => p);
     }
 
-    // Visual helpers
+    // Format response: try to organize by tags into a short ordered summary
+    function organizeAndFormat(text) {
+      const paras = splitParagraphs(text);
+
+      // If backend already returns divided sections with tags like "Ataques:" etc,
+      // collect them keyed by tag
+      const sections = {};
+      paras.forEach(p => {
+        const m = p.match(/^([^:]{2,30}):\s*(.*)/); // "Tag: rest"
+        if (m) {
+          const tag = m[1].trim();
+          const rest = m[2].trim();
+          if (!sections[tag]) sections[tag] = [];
+          sections[tag].push(rest);
+        } else {
+          // push to generic
+          if (!sections["Descripción"]) sections["Descripción"] = [];
+          sections["Descripción"].push(p);
+        }
+      });
+
+      // Build ordered result: prefer TAG_ORDER then Descripción then leftover
+      let out = [];
+      TAG_ORDER.forEach(tag => {
+        if (sections[tag]) {
+          const content = sections[tag].join(" ");
+          out.push({ tag, text: content });
+          delete sections[tag];
+        }
+      });
+
+      // Add Descripción early if present
+      if (sections["Descripción"]) {
+        // Take first 2 paragraphs of description for brevity
+        const desc = sections["Descripción"].slice(0,2).join(" ");
+        out.unshift({ tag: "Descripción", text: desc });
+        delete sections["Descripción"];
+      }
+
+      // Any remaining sections: add them
+      Object.keys(sections).forEach(key => {
+        out.push({ tag: key, text: sections[key].join(" ") });
+      });
+
+      // If nothing parsed, fallback to first 3 paragraphs
+      if (out.length === 0 && paras.length) {
+        paras.slice(0,3).forEach((p,i) => out.push({ tag: i===0 ? "Descripción" : "Detalle", text: p }));
+      }
+
+      // Build HTML
+      const html = out.map(section => {
+        return `<p><span class="tag">${escapeHtml(section.tag)}</span> ${escapeHtml(section.text)}</p>`;
+      }).join("");
+      return { html, paragraphs: out.map(s => s.text) };
+    }
+
+    function escapeHtml(s) {
+      if (!s) return "";
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
     function showLoading(name) {
-      screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + name + "</strong>...</p>";
+      screen.innerHTML = "<p>🔎 Buscando información sobre <strong>" + escapeHtml(name) + "</strong>...</p>";
       btnAudioEl.style.display = "none";
       miniSprite.style.display = "none";
       miniName.textContent = "";
     }
 
     function showError(msg) {
-      screen.innerHTML = "<p>❌ " + msg + "</p>";
+      screen.innerHTML = "<p>❌ " + escapeHtml(msg) + "</p>";
     }
 
-    // Perform search through proxy (POST /api/proxy)
+    // Main: call proxy and show concise, ordered info
     async function buscarPokemon(nombre) {
       if (!nombre) return;
       showLoading(nombre);
@@ -348,8 +254,11 @@
           return;
         }
 
-        // Mostrar sprite si existe
+        // Prepare short/ordered formatted result
+        const result = organizeAndFormat(data.respuesta);
         const sprite = data.sprite || "";
+
+        // Update mini area
         if (sprite) {
           miniSprite.src = sprite;
           miniSprite.alt = nombre;
@@ -359,15 +268,15 @@
         }
         miniName.textContent = nombre.toUpperCase();
 
-        // Mostrar resultado formateado
+        // Render main screen (compact and ordered)
         screen.innerHTML = `
           ${sprite ? `<img src="${sprite}" alt="${nombre}" class="pokemon-img">` : ""}
-          <h2 style="text-align:center; color:var(--accent); margin:8px 0;">${nombre.toUpperCase()}</h2>
-          <div id="resultado">${formatText(data.respuesta)}</div>
+          <h2 style="text-align:center; color:var(--accent); margin:8px 0;">${escapeHtml(nombre.toUpperCase())}</h2>
+          <div id="resultado">${result.html}</div>
         `;
 
-        // Prepare TTS paragraphs
-        paragraphs = (data.respuesta || "").replace(/[\*\/]/g, "").split(/\n+/).filter(p => p.trim() !== "");
+        // Prepare paragraphs for TTS (use the organized paragraphs array)
+        paragraphs = result.paragraphs.length ? result.paragraphs : splitParagraphs(data.respuesta).slice(0,6);
         paragraphElements = document.querySelectorAll("#resultado p");
         currentParagraphIndex = 0;
         btnAudioEl.style.display = "inline-flex";
@@ -383,10 +292,7 @@
     // Button listeners
     buscarBtn.addEventListener("click", function () {
       const nombre = (input.value || "").trim().toLowerCase();
-      if (!nombre) {
-        alert("Ingresa un nombre de Pokémon");
-        return;
-      }
+      if (!nombre) { alert("Ingresa un nombre de Pokémon"); return; }
       buscarPokemon(nombre);
     });
 
@@ -407,9 +313,7 @@
       paragraphElements = [];
       currentParagraphIndex = 0;
       paused = false;
-      if (speech && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      if (speech && window.speechSynthesis) window.speechSynthesis.cancel();
     });
 
     /******************************
@@ -443,7 +347,7 @@
       if (currentParagraphIndex >= paragraphs.length) {
         btnAudioEl.classList.remove("speaking");
         currentParagraphIndex = 0;
-        paragraphElements.forEach(p => p.classList.remove("highlight"));
+        paragraphElements.forEach(p => p.classList.remove('highlight'));
         if (paragraphElements[0]) paragraphElements[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
         speech = null;
         return;
@@ -453,10 +357,7 @@
       utterance.lang = 'es-ES';
       paragraphElements.forEach(p => p.classList.remove('highlight'));
       const currentEl = paragraphElements[currentParagraphIndex];
-      if (currentEl) {
-        currentEl.classList.add('highlight');
-        currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      if (currentEl) { currentEl.classList.add('highlight'); currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       utterance.onend = function () { currentParagraphIndex++; speakNext(); };
       speech = utterance;
       window.speechSynthesis.speak(speech);
@@ -464,17 +365,16 @@
       paused = false;
     }
 
-    // Expose buscar (useful if other code clicks)
+    // Expose buscar for external use (keeps compatibility)
     window.buscarPokemon = function(nombre) {
       if (!nombre) return;
-      buscarPokemon(nombre.toLowerCase());
+      buscarPokemon(String(nombre).toLowerCase());
     };
 
-    // Compatibility: load small polyfills if environment is old (AppCreator webview)
+    // Compatibility: polyfills for old webviews
     (function ensurePolyfills() {
       const needs = (!window.fetch || !window.Promise || !window.TextDecoder || !window.TextEncoder);
       if (needs) {
-        // load minimal fetch/promise polyfills (CDN)
         const p = document.createElement('script');
         p.src = "https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js";
         document.head.appendChild(p);
