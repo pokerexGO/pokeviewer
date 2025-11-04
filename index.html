@@ -152,8 +152,6 @@
     let speech=null, paused=false;
     let highlightInterval=null;
 
-    const isAppCreator = navigator.userAgent.includes("AppCreator24");
-
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
@@ -179,7 +177,7 @@
         sections[tag] = sections[tag].filter(line=>line.trim());
         if(sections[tag].length===0) sections[tag]=["Información no disponible"];
       });
-      const out=[];
+      const out=[]; 
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
       const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
@@ -187,7 +185,7 @@
     }
 
     function showLoading(name){
-      if(!isAppCreator && speech && window.speechSynthesis) window.speechSynthesis.cancel();
+      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
@@ -227,6 +225,7 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -237,7 +236,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if(!isAppCreator && window.speechSynthesis) window.speechSynthesis.cancel();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -250,88 +249,56 @@
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(!isAppCreator && window.speechSynthesis) window.speechSynthesis.cancel();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       clearInterval(highlightInterval);
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
 
-    btnAudioEl.addEventListener("click", ()=>{
+    // --- NUEVO MÉTODO DE VOZ USANDO TTS BASE64 ---
+    btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
-      if(isAppCreator){
-        speakTextAppCreator(paragraphs.join(". "));
-      } else {
-        speakTextBrowser();
-      }
-    });
 
-    function speakTextBrowser(){
-      const synth = window.speechSynthesis;
-      if(!synth) return;
+      // Si ya hay audio reproduciéndose, no hacer nada
+      if(speech){ speech.pause(); speech=null; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval); return; }
 
-      if(synth.speaking || paused){
-        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-      } else { currentParagraphIndex=0; speakNext(); }
-    }
-
-    async function speakTextAppCreator(text){
-      try {
-        const resp = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
-        });
-        if(!resp.ok) throw new Error("Error TTS servidor");
-        const blob = await resp.blob();
-        const audioURL = URL.createObjectURL(blob);
-        const audio = new Audio(audioURL);
-        audio.play();
-      } catch(err){
-        console.error("TTS AppCreator24:", err);
-      }
-    }
-
-    function startHighlightLoop(){
-      clearInterval(highlightInterval);
-      highlightInterval = setInterval(()=>{
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(currentParagraphIndex<paragraphElements.length) {
-          paragraphElements[currentParagraphIndex].classList.add("highlight");
-          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
-        }
-      },50);
-    }
-
-    function speakNext(){
-      if(currentParagraphIndex>=paragraphs.length){
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        currentParagraphIndex=0;
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screenContainer) screenContainer.scrollTop=0;
-        speech=null;
-        clearInterval(highlightInterval);
-        return;
-      }
-
-      const paragraph = paragraphs[currentParagraphIndex];
-      const u = new SpeechSynthesisUtterance(paragraph);
-      u.lang='es-ES';
-
-      speech = u;
-      window.speechSynthesis.speak(u);
+      const textoCompleto = paragraphs.join(". ");
       btnAudioEl.classList.add("speaking");
       btnAudioEl.style.border="2px solid #00f0ff";
-      paused=false;
-      startHighlightLoop();
 
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
-    }
+      try {
+        const resp = await fetch("/api/tts", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({text:textoCompleto})
+        });
+        const data = await resp.json();
+        if(!data.audioBase64){ console.error("No se recibió audio TTS"); return; }
+
+        const audio = new Audio(data.audioBase64);
+        speech = audio;
+        audio.play();
+
+        let idx=0;
+        highlightInterval = setInterval(()=>{
+          paragraphElements.forEach(p=>p.classList.remove("highlight"));
+          if(idx<paragraphElements.length){
+            paragraphElements[idx].classList.add("highlight");
+            paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+          }
+        }, 300);
+
+        audio.onended = ()=>{
+          paragraphElements.forEach(p=>p.classList.remove("highlight"));
+          btnAudioEl.classList.remove("speaking");
+          btnAudioEl.style.border="2px solid transparent";
+          clearInterval(highlightInterval);
+          speech=null;
+        }
+
+      } catch(err){ console.error("Error TTS:", err); btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; }
+    });
 
   })();
   </script>
