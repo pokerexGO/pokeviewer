@@ -1,10 +1,14 @@
-// API para generar audio TTS que funcione en AppCreator24
+// API para generar audio TTS y devolver Base64
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Método no permitido" });
+    }
 
     const { text } = req.body;
-    if (!text || text.trim() === "") return res.status(400).json({ error: "Texto vacío" });
+    if (!text || text.trim() === "") {
+      return res.status(400).json({ error: "Texto vacío" });
+    }
 
     // Llamada a la API TTS (ejemplo con OpenAI)
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
@@ -26,12 +30,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Error generando audio TTS" });
     }
 
+    // Convertimos el audio a Base64
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const audioBase64 = buffer.toString("base64");
 
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(buffer);
+    // Retornamos como JSON
+    res.status(200).json({ audioBase64: `data:audio/mpeg;base64,${audioBase64}` });
 
   } catch (error) {
     console.error("Error en /api/tts:", error);
