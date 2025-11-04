@@ -58,9 +58,9 @@
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
-    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; }
+    #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.2s; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,165,0,0.35); border-radius:6px; transition:background .18s; }
+    .highlight { background: rgba(255,165,0,0.35); border-radius:6px; transition: background 0.1s; }
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -80,9 +80,7 @@
       display:none;
       transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
     }
-    #btnAudio.speaking {
-      border:2px solid #00f0ff; /* neón celeste */
-    }
+    #btnAudio.speaking { border:2px solid #00f0ff; }
 
     .rayo {
       position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
@@ -157,7 +155,7 @@
         }
       });
       // asegurar contenido real en Información
-      if(sections["Información"] && sections["Información"].length===0) sections["Información"]=["Información no disponible"];
+      if(!sections["Información"] || sections["Información"].length===0) sections["Información"]=["Información no disponible"];
       Object.keys(sections).forEach(tag=>{
         sections[tag] = sections[tag].filter(line=>line.trim());
         if(sections[tag].length===0) sections[tag]=["Información no disponible"];
@@ -255,7 +253,8 @@
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
 
-      if(paragraphElements) paragraphElements.forEach(p=>p.classList.remove("highlight"));
+      // Fuerza resalte
+      paragraphElements.forEach(p=>p.classList.remove("highlight"));
       const currEl = paragraphElements[currentParagraphIndex];
       if(currEl){ 
         currEl.classList.add("highlight");
@@ -263,7 +262,10 @@
       }
 
       u.onstart = ()=>{ btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; }
-      u.onend = ()=>{ currentParagraphIndex++; speakNext(); };
+      u.onend = ()=>{ 
+        currentParagraphIndex++; 
+        setTimeout(()=>speakNext(), 50); // fuerza paso al siguiente para resaltar correctamente
+      };
 
       speech=u;
       window.speechSynthesis.speak(u);
