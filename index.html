@@ -49,8 +49,8 @@
       border-radius:10px;
       border:3px solid var(--border);
       padding:12px;
-      min-height:300px;
-      max-height:58vh;
+      min-height:380px; /* aumentado de 300px a 380px */
+      max-height:68vh;  /* aumentado de 58vh a 68vh */
       overflow:auto;
       box-sizing:border-box;
     }
@@ -102,6 +102,7 @@
     @media (max-width:420px) {
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
+      .screen-container { min-height:320px; max-height:60vh; } /* ajustes responsivos */
     }
   </style>
 </head>
