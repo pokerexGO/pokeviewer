@@ -225,7 +225,6 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
-        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -256,29 +255,44 @@
       screenContainer.style.width = "100%";
     });
 
-    // --- BLOQUE DE AUDIO AJUSTADO PARA APPCREATOR Y NAVEGADORES ---
+    // --- BLOQUE DE AUDIO AJUSTADO PARA NAVEGADORES Y APPCREATOR24 ---
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      if(speech){
-        // Si ya hay audio reproduciéndose, detener
-        if(!isAppCreator) { speechSynthesis.cancel(); } 
-        else { speech.pause(); speech=null; }
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        clearInterval(highlightInterval);
-        return;
-      }
+      // Si ya hay audio reproduciéndose
+      if(speech){ speech.pause(); speech=null; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval); return; }
 
       const textoCompleto = paragraphs.join(". ");
       btnAudioEl.classList.add("speaking");
       btnAudioEl.style.border="2px solid #00f0ff";
 
-      const isAppCreator = /appcreator/i.test(navigator.userAgent);
-
-      try{
-        if(isAppCreator){
-          // Usar TTS desde API
+      try {
+        // Detectar si es AppCreator24
+        const isAppCreator = /appcreator/i.test(navigator.userAgent);
+        if(!isAppCreator && window.speechSynthesis){ 
+          // Navegadores normales: usar SpeechSynthesis
+          const utter = new SpeechSynthesisUtterance(textoCompleto);
+          utter.lang = "es-ES";
+          speech = utter;
+          speechSynthesis.speak(utter);
+          let idx=0;
+          highlightInterval = setInterval(()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            if(idx<paragraphElements.length){
+              paragraphElements[idx].classList.add("highlight");
+              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+              idx++;
+            }
+          }, 500);
+          utter.onend = ()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            btnAudioEl.classList.remove("speaking");
+            btnAudioEl.style.border="2px solid transparent";
+            clearInterval(highlightInterval);
+            speech=null;
+          }
+        } else {
+          // AppCreator24: usar TTS vía /api/tts
           const resp = await fetch("/api/tts", {
             method:"POST",
             headers:{"Content-Type":"application/json"},
@@ -297,6 +311,7 @@
             if(idx<paragraphElements.length){
               paragraphElements[idx].classList.add("highlight");
               paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+              idx++;
             }
           }, 300);
 
@@ -307,38 +322,9 @@
             clearInterval(highlightInterval);
             speech=null;
           }
-
-        } else {
-          // Navegadores normales: SpeechSynthesis
-          const synth = window.speechSynthesis;
-          const utter = new SpeechSynthesisUtterance(textoCompleto);
-          speech = utter;
-          synth.speak(utter);
-
-          let idx=0;
-          highlightInterval = setInterval(()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            if(idx<paragraphElements.length){
-              paragraphElements[idx].classList.add("highlight");
-              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
-            }
-          }, 300);
-
-          utter.onend = ()=>{
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            btnAudioEl.classList.remove("speaking");
-            btnAudioEl.style.border="2px solid transparent";
-            clearInterval(highlightInterval);
-            speech=null;
-          }
         }
 
-      } catch(err){
-        console.error("Error en TTS:", err);
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        clearInterval(highlightInterval);
-      }
+      } catch(err){ console.error("Error TTS:", err); btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; }
     });
 
   })();
