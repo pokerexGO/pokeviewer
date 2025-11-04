@@ -60,7 +60,7 @@
 
     #resultado p { background: rgba(0,0,0,0.35); padding:8px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.3s; }
     .tag { background: var(--accent); padding:3px 8px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(85,187,85,0.3); border-radius:6px; }
+    .highlight { background: rgba(102,187,102,0.3); border-radius:6px; }
 
     .controls { margin-top:12px; display:flex; gap:8px; align-items:center; justify-content:center; }
     input[type="text"]{ padding:10px 12px; border-radius:8px; width:62%; border:none; text-align:center; outline:none; font-size:1rem; }
@@ -82,11 +82,11 @@
     }
     #btnAudio.speaking {
       animation: pulseBtn 1s infinite alternate;
-      background:#66bb66;
+      background:#88cc88; /* Verde más suave */
     }
     @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #66bb66; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #66bb66; }
+      0% { transform: scale(1); box-shadow: 0 0 10px #88cc88; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #88cc88; }
     }
 
     .rayo {
@@ -239,7 +239,7 @@
         const synth=window.speechSynthesis;
         if(synth.speaking || paused){
           if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.background="#111"; }
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#66bb66"; }
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.background="#88cc88"; }
         } else { currentParagraphIndex=0; speakNext(); }
       });
     } else btnAudioEl.style.display="none";
@@ -262,7 +262,7 @@
       if(currEl){ currEl.classList.add('highlight'); currEl.scrollIntoView({behavior:'smooth', block:'center'}); }
       u.onend=function(){ currentParagraphIndex++; speakNext(); };
       speech=u; window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#66bb66"; paused=false;
+      btnAudioEl.classList.add('speaking'); btnAudioEl.style.background="#88cc88"; paused=false;
     }
   })();
   </script>
