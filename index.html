@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; 
+      margin:6px 0;
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -177,7 +177,7 @@
         sections[tag] = sections[tag].filter(line=>line.trim());
         if(sections[tag].length===0) sections[tag]=["Información no disponible"];
       });
-      const out=[];
+      const out=[]; 
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
       const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
@@ -225,6 +225,7 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -232,8 +233,15 @@
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
-    buscarBtn.addEventListener("click", ()=>{ const nombre=(input.value||"").trim().toLowerCase(); if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; } if(window.speechSynthesis) window.speechSynthesis.cancel(); buscarPokemon(nombre); });
+    buscarBtn.addEventListener("click", ()=>{
+      const nombre=(input.value||"").trim().toLowerCase();
+      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      buscarPokemon(nombre);
+    });
+
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
+
     clearBtn.addEventListener("click", ()=>{
       input.value="";
       screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
@@ -248,87 +256,90 @@
       screenContainer.style.width = "100%";
     });
 
-    const isAppCreator = /appcreator/i.test(navigator.userAgent); // Detecta AppCreator24
-
+    // --- BLOQUE DE AUDIO AJUSTADO PARA APPCREATOR Y NAVEGADORES ---
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      if(isAppCreator){
-        // Método AppCreator24 con TTS por API
-        if(speech){ paused=!paused; return; } 
-        currentParagraphIndex=0;
-        for(let i=0;i<paragraphs.length;i++){
-          const text = paragraphs[i];
-          try{
-            const resp = await fetch("/api/tts", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text}) });
-            if(!resp.ok) continue;
-            const blob = await resp.blob();
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            audio.play();
-            speech = audio;
-            btnAudioEl.classList.add("speaking");
-            btnAudioEl.style.border="2px solid #00f0ff";
-
-            paragraphElements.forEach(p=>p.classList.remove("highlight"));
-            paragraphElements[i].classList.add("highlight");
-            paragraphElements[i].scrollIntoView({behavior:"smooth", block:"center"});
-
-            await new Promise(r=>{ audio.onended=r; });
-          } catch(e){ console.error("TTS AppCreator error",e); }
-        }
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+      if(speech){
+        // Si ya hay audio reproduciéndose, detener
+        if(!isAppCreator) { speechSynthesis.cancel(); } 
+        else { speech.pause(); speech=null; }
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
-        speech=null;
-      } else {
-        // Método normal de navegadores
-        if(!window.speechSynthesis || typeof SpeechSynthesisUtterance!=="function") return;
-        const synth = window.speechSynthesis;
-        if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-        } else { currentParagraphIndex=0; speakNext(); }
-      }
-    });
-
-    function startHighlightLoop(){
-      clearInterval(highlightInterval);
-      highlightInterval = setInterval(()=>{
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(currentParagraphIndex<paragraphElements.length) {
-          paragraphElements[currentParagraphIndex].classList.add("highlight");
-          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
-        }
-      },50);
-    }
-
-    function speakNext(){
-      if(currentParagraphIndex>=paragraphs.length){
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        currentParagraphIndex=0;
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screenContainer) screenContainer.scrollTop=0;
-        speech=null;
         clearInterval(highlightInterval);
         return;
       }
 
-      const paragraph = paragraphs[currentParagraphIndex];
-      const u = new SpeechSynthesisUtterance(paragraph);
-      u.lang='es-ES';
-      speech = u;
-      window.speechSynthesis.speak(u);
+      const textoCompleto = paragraphs.join(". ");
       btnAudioEl.classList.add("speaking");
       btnAudioEl.style.border="2px solid #00f0ff";
-      paused=false;
-      startHighlightLoop();
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
-    }
+
+      const isAppCreator = /appcreator/i.test(navigator.userAgent);
+
+      try{
+        if(isAppCreator){
+          // Usar TTS desde API
+          const resp = await fetch("/api/tts", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({text:textoCompleto})
+          });
+          const data = await resp.json();
+          if(!data.audioBase64){ console.error("No se recibió audio TTS"); return; }
+
+          const audio = new Audio(data.audioBase64);
+          speech = audio;
+          audio.play();
+
+          let idx=0;
+          highlightInterval = setInterval(()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            if(idx<paragraphElements.length){
+              paragraphElements[idx].classList.add("highlight");
+              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+            }
+          }, 300);
+
+          audio.onended = ()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            btnAudioEl.classList.remove("speaking");
+            btnAudioEl.style.border="2px solid transparent";
+            clearInterval(highlightInterval);
+            speech=null;
+          }
+
+        } else {
+          // Navegadores normales: SpeechSynthesis
+          const synth = window.speechSynthesis;
+          const utter = new SpeechSynthesisUtterance(textoCompleto);
+          speech = utter;
+          synth.speak(utter);
+
+          let idx=0;
+          highlightInterval = setInterval(()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            if(idx<paragraphElements.length){
+              paragraphElements[idx].classList.add("highlight");
+              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+            }
+          }, 300);
+
+          utter.onend = ()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            btnAudioEl.classList.remove("speaking");
+            btnAudioEl.style.border="2px solid transparent";
+            clearInterval(highlightInterval);
+            speech=null;
+          }
+        }
+
+      } catch(err){
+        console.error("Error en TTS:", err);
+        btnAudioEl.classList.remove("speaking");
+        btnAudioEl.style.border="2px solid transparent";
+        clearInterval(highlightInterval);
+      }
+    });
 
   })();
   </script>
