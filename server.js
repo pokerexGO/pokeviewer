@@ -1,65 +1,73 @@
 // server.js
 import express from "express";
 import dotenv from "dotenv";
-import bodyParser from "body-parser";
 import fetch from "node-fetch";
-import OpenAI from "openai";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(cors());
+app.use(express.json());
 
-app.use(bodyParser.json());
+// Configurar rutas estáticas (sirve index.html, etc.)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, "public")));
 
-// --- API Proxy para Pokémon ---
-app.post("/api/proxy", async (req, res) => {
-  try {
-    const { pokemon } = req.body;
-    if (!pokemon) return res.status(400).json({ error: "No se recibió nombre de Pokémon" });
-
-    const targetUrl = "https://pokeasistente-ia-generative.vercel.app/api/pokemon";
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pokemon })
-    });
-
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (err) {
-    console.error("Error proxy Pokémon:", err);
-    res.status(500).json({ error: "Error conectando con la API principal" });
-  }
+// Ruta principal
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// --- API TTS usando OpenAI ---
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+// ---------- 🔊 Endpoint TTS con Unreal Speech ----------
 app.post("/api/tts", async (req, res) => {
   try {
     const { text } = req.body;
-    if (!text || text.trim() === "") return res.status(400).json({ error: "Texto vacío" });
 
-    const response = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: text
+    if (!text || text.trim() === "") {
+      return res.status(400).json({ error: "Texto vacío o inválido" });
+    }
+
+    // Petición a Unreal Speech API
+    const response = await fetch("https://api.v7.unrealspeech.com/stream", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.UNREAL_API_KEY}`, // Tu key en Vercel
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        Text: text,
+        VoiceId: "Scarlett", // Puedes probar con "Will", "Liv", etc.
+        Bitrate: "192k",
+        Speed: "0",
+        Pitch: "1.0",
+        Codec: "mp3",
+      }),
     });
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const base64Audio = `data:audio/mpeg;base64,${buffer.toString("base64")}`;
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("Error en Unreal Speech:", err);
+      return res.status(500).json({ error: "Error en Unreal Speech API" });
+    }
 
-    res.json({ audioBase64: base64Audio });
-  } catch (err) {
-    console.error("Error TTS:", err);
-    res.status(500).json({ error: "Error generando audio" });
+    // Convertimos la respuesta binaria en base64 para retornarla fácilmente
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(audioBuffer).toString("base64");
+    const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
+
+    res.json({ audioUrl });
+  } catch (error) {
+    console.error("Error en /api/tts:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 
-// --- Iniciar servidor ---
+// ---------- 🚀 Puerto ----------
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor funcionando en http://localhost:${PORT}`);
 });
-
-export default app;
