@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -39,3 +38,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Error interno TTS" });
   }
 }
+
