@@ -53,11 +53,14 @@
       <div class="title">PokeViewer</div>
       <div class="bolt right"></div>
     </div>
+
     <div class="pokedex">
       <div class="screen-container" id="screenContainer">
         <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
+
       <button id="btnAudio">🔊 Leer</button>
+
       <div class="controls">
         <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
         <button id="buscarBtn" class="btnBuscar">Buscar</button>
@@ -65,6 +68,7 @@
       </div>
     </div>
   </div>
+
   <div class="rayo r1"></div>
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
@@ -78,13 +82,11 @@
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
-    let paragraphs=[], paragraphElements=[], audio=null;
-    let highlightInterval=null;
+    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
+    let audio=null, highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
-
     function organize(text){
       const paras = splitText(text);
       const sections = {};
@@ -110,48 +112,59 @@
                            `<h2>${esc(nombre.toUpperCase())}</h2><div id="resultado">${organized.html}</div>`;
         paragraphs = organized.parasForTTS; paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         btnAudioEl.style.display="block";
-      }catch(e){ screen.innerHTML="<p>❌ Error al buscar</p>"; console.error(e);}
-    }
 
-    buscarBtn.onclick=()=>{ const n=input.value.trim(); if(!n) return alert("Ingresa un nombre"); buscarPokemon(n); };
-    clearBtn.onclick=()=>{ input.value=""; screen.innerHTML="<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>"; btnAudioEl.style.display="none"; if(audio){ audio.pause(); audio=null;} paragraphElements.forEach(p=>p.classList.remove("highlight")); clearInterval(highlightInterval); };
-
-    // 🔊 Función de TTS con resaltado en tiempo real
-    async function reproducirVozTTS(paragraphs){
-      if(!paragraphs.length) return;
-      if(audio){ audio.pause(); audio=null;}
-      paragraphElements.forEach(p=>p.classList.remove("highlight"));
-      const text = paragraphs.join(". ");
-      try{
-        const resp = await fetch("/api/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
-        if(!resp.ok) throw new Error("TTS no disponible");
-        const blob = await resp.blob();
+        // Generar audio TTS en el servidor y obtener URL
+        const ttsResp = await fetch("/api/tts", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({text: paragraphs.join(". ")})
+        });
+        const blob = await ttsResp.blob();
         const url = URL.createObjectURL(blob);
         audio = new Audio(url);
-        audio.play();
-
-        // Resaltado de palabras aproximado por tiempo
-        let words = text.split(/\s+/);
-        let currentWord = 0;
-        const duration =  audio.duration || 4000; // fallback
-        let intervalTime = duration / words.length;
-
-        highlightInterval = setInterval(()=>{
-          paragraphElements.forEach(p=>p.classList.remove("highlight"));
-          if(currentWord<words.length){
-            const w = words[currentWord].replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g,"");
-            paragraphElements.forEach(p=>{
-              if(p.innerText.includes(w)) p.classList.add("highlight");
-            });
-            currentWord++;
-          } else { clearInterval(highlightInterval); paragraphElements.forEach(p=>p.classList.remove("highlight")); }
-        }, intervalTime);
-
-        audio.onended = ()=>{ clearInterval(highlightInterval); paragraphElements.forEach(p=>p.classList.remove("highlight")); audio=null; };
-      }catch(e){ alert("Audio no disponible"); console.error(e);}
+      }catch(e){ screen.innerHTML="<p>❌ Error al buscar</p>"; }
     }
 
-    btnAudioEl.addEventListener("click", ()=>{ reproducirVozTTS(paragraphs); });
+    function startHighlightLoop(){
+      clearInterval(highlightInterval);
+      highlightInterval = setInterval(()=>{
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(currentParagraphIndex<paragraphElements.length) paragraphElements[currentParagraphIndex].classList.add("highlight");
+      },50);
+    }
+
+    btnAudioEl.addEventListener("click",()=>{
+      if(!audio) return;
+      if(audio.paused){
+        currentParagraphIndex=0;
+        audio.play();
+        startHighlightLoop();
+        btnAudioEl.classList.add("speaking");
+        audio.onended = ()=>{
+          btnAudioEl.classList.remove("speaking");
+          paragraphElements.forEach(p=>p.classList.remove("highlight"));
+          currentParagraphIndex=0;
+          clearInterval(highlightInterval);
+        };
+        let lastTime = 0;
+        const interval = setInterval(()=>{
+          if(!audio.paused){
+            const durationPerParagraph = audio.duration/paragraphElements.length;
+            const index = Math.floor(audio.currentTime/durationPerParagraph);
+            if(index!==lastTime && index<paragraphElements.length){
+              currentParagraphIndex = index;
+              lastTime = index;
+              paragraphElements.forEach(p=>p.classList.remove("highlight"));
+              paragraphElements[index].classList.add("highlight");
+              paragraphElements[index].scrollIntoView({behavior:"smooth", block:"center"});
+            }
+          } else clearInterval(interval);
+        },100);
+      } else { audio.pause(); btnAudioEl.classList.remove("speaking"); clearInterval(highlightInterval); }
+    });
+
+    buscarBtn.onclick=()=>{ const n=input.value.trim(); if(!n) return alert("Ingresa un nombre"); buscarPokemon(n); };
+    clearBtn.onclick=()=>{ input.value=""; screen.innerHTML="<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>"; btnAudioEl.style.display="none"; paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; if(audio) audio.pause(); clearInterval(highlightInterval); };
 
   })();
   </script>
