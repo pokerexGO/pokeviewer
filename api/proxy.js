@@ -1,37 +1,26 @@
 // api/proxy.js
+import fetch from "node-fetch";
+
 export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+  const { pokemon } = req.body;
+  if (!pokemon) return res.status(400).json({ error: "Se requiere el nombre del Pokémon" });
+
   try {
-    // Aseguramos que sea una petición POST
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Método no permitido" });
-    }
+    // Obtener datos desde PokeAPI
+    const pokeResp = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemon.toLowerCase()}`);
+    if (!pokeResp.ok) return res.status(404).json({ error: "Pokémon no encontrado" });
+    const pokeData = await pokeResp.json();
 
-    const { pokemon } = req.body;
+    // Datos básicos: sprite + ataques
+    const sprite = pokeData.sprites?.front_default || "";
+    const moves = pokeData.moves.map(m => m.move.name).slice(0,5).join(", ");
+    const tipos = pokeData.types.map(t => t.type.name).join(", ");
+    const respuesta = `Tipo: ${tipos}\nAtaques recomendados: ${moves}`;
 
-    if (!pokemon) {
-      return res.status(400).json({ error: "Falta el nombre del Pokémon" });
-    }
-
-    // 🔹 Aquí podrías conectar con una API real (por ejemplo, la de Gemini o PokéAPI)
-    // Pero para mantener compatibilidad con AppCreator24, devolvemos texto simulado:
-    const respuesta = `
-      Nombre: ${pokemon}.
-      Tipo: Agua.
-      Descripción: ${pokemon} es un Pokémon con una gran afinidad por el océano.
-      Ataques recomendados: Surf, Hidrobomba, Cascada.
-    `;
-
-    // Imagen representativa del Pokémon
-    const sprite = `https://img.pokemondb.net/artwork/${pokemon}.jpg`;
-
-    // 🔹 Enviamos la información como respuesta JSON
-    res.status(200).json({
-      respuesta,
-      sprite,
-    });
-
-  } catch (err) {
-    console.error("Error en el proxy:", err);
-    res.status(500).json({ error: "Error en el proxy del servidor" });
+    res.status(200).json({ sprite, respuesta });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error al obtener datos del Pokémon" });
   }
 }
