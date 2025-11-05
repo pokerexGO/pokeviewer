@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0;
+      margin:6px 0; /* Más cerca de los botones */
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -141,87 +141,231 @@
 
   <script>
   (function(){
-    const input = document.getElementById('pokemonInput');
-    const buscarBtn = document.getElementById('buscarBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const screen = document.getElementById('screen');
-    const screenContainer = document.getElementById('screenContainer');
-    const btnAudioEl = document.getElementById('btnAudio');
-    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
+    const input=document.getElementById('pokemonInput');
+    const buscarBtn=document.getElementById('buscarBtn');
+    const clearBtn=document.getElementById('clearBtn');
+    const screen=document.getElementById('screen');
+    const screenContainer=document.getElementById('screenContainer');
+    const btnAudioEl=document.getElementById('btnAudio');
 
-    function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+    let paragraphs=[],paragraphElements=[],currentParagraphIndex=0;
+    let speech=null,paused=false;
+    let highlightInterval=null;
 
-    function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
+    function isAppCreator24(){
+      // Detección flexible de AppCreator24 webview
+      return /AppCreator24/i.test(navigator.userAgent) || (window.location !== window.parent.location);
+    }
 
-    function organize(text){
-      const paras = splitText(text);
-      const sections = {};
+    function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):"";}
+    function splitText(t){return t?t.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l):[];}
+    function organize(t){
+      const paras=splitText(t),sections={};
       paras.forEach(p=>{
         const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
         if(m){
-          let tag = m[1].trim();
-          if(tag.toLowerCase().includes("ataques recomendados")) tag="Ataques";
-          const content = m[2].trim();
+          let tag=m[1].trim();
+          if(tag.toLowerCase().includes("ataques")) tag="Ataques";
+          const c=m[2].trim();
           if(!sections[tag]) sections[tag]=[];
-          sections[tag].push(content);
+          sections[tag].push(c);
         } else {
           if(!sections["Información"]) sections["Información"]=[];
           sections["Información"].push(p);
         }
       });
+      if(!sections["Información"]||!sections["Información"].length) sections["Información"]=["Información no disponible"];
+      Object.keys(sections).forEach(t=>{sections[t]=sections[t].filter(l=>l.trim()); if(!sections[t].length) sections[t]=["Información no disponible"];});
       const out=[];
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = out.map(s=>s.tag+": "+s.text);
-      return {html, parasForTTS};
+      const html=out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
+      const parasForTTS=out.map(s=>s.tag+": "+s.text);
+      return {html,parasForTTS};
     }
+
+    function showLoading(n){if(speech&&window.speechSynthesis)window.speechSynthesis.cancel();screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(n)}</strong>...</p>`;btnAudioEl.style.display="none";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";clearInterval(highlightInterval);}
+    function showError(m){screen.innerHTML=`<p>❌ ${esc(m)}</p>`;btnAudioEl.style.display="none";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";clearInterval(highlightInterval);}
 
     async function buscarPokemon(nombre){
       if(!nombre) return;
-      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(nombre)}</strong>...</p>`;
+      showLoading(nombre);
       try{
-        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
-        const data = await resp.json();
-        const sprite = data.sprite||"";
-        const organized = organize(data.respuesta);
-        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" class="pokemon-img">`:"")+`<h2 style="text-align:center;color:var(--accent)">${esc(nombre.toUpperCase())}</h2><div id="resultado">${organized.html}</div>`;
-        paragraphs = organized.parasForTTS;
-        paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        currentParagraphIndex=0;
-        btnAudioEl.style.display="block";
-      } catch(err){ console.error(err); screen.innerHTML="<p>❌ Error al conectar.</p>"; }
+        const r=await fetch("/api/proxy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pokemon:nombre})});
+        if(!r.ok){showError("Error en el servidor: "+r.status);return;}
+        const d=await r.json();
+        if(d.error||!d.respuesta){showError(d.error||"No se recibió respuesta.");return;}
+        const s=d.sprite||"",o=organize(d.respuesta);
+        screen.innerHTML=(s?`<img src="${esc(s)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+`<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+`<div id="resultado">${o.html}</div>`;
+        paragraphs=o.parasForTTS; paragraphElements=Array.from(document.querySelectorAll("#resultado p")); currentParagraphIndex=0; btnAudioEl.style.display="block"; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; speech=null;
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
+        screenContainer.style.maxHeight="60vh"; screenContainer.style.minHeight="320px"; screenContainer.style.width="100%";
+      }catch(e){console.error(e);showError("Error al conectar con el servidor.");}
     }
 
-    buscarBtn.addEventListener("click", ()=>{ const nombre=(input.value||"").trim().toLowerCase(); if(nombre) buscarPokemon(nombre); });
+    buscarBtn.addEventListener("click", ()=>{const n=(input.value||"").trim().toLowerCase(); if(!n){alert("Ingresa un nombre de Pokémon"); return;} if(window.speechSynthesis) window.speechSynthesis.cancel(); buscarPokemon(n);});
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
-    clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML="<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>"; btnAudioEl.style.display="none"; });
+    clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false; if(window.speechSynthesis) window.speechSynthesis.cancel(); clearInterval(highlightInterval); screenContainer.style.maxHeight="50vh"; screenContainer.style.minHeight="280px"; screenContainer.style.width="100%"; });
 
-    // 🔊 UNREAL SPEECH TTS
+    // ---- VOZ DUAL: AppCreator24 -> /api/tts (blob), Navegador -> SpeechSynthesis ----
+    // Inicializa speechSynthesis en webviews que bloquean antes de interacción
+    let speechInitialized = false;
+    document.body.addEventListener("click", function initDummySpeech(){
+      if(speechInitialized) return;
+      if("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function"){
+        try {
+          const u=new SpeechSynthesisUtterance("");
+          u.lang="es-ES";
+          window.speechSynthesis.speak(u);
+          window.speechSynthesis.cancel();
+        } catch(e) { /* ignore */ }
+      }
+      speechInitialized = true;
+      document.body.removeEventListener("click", initDummySpeech);
+    });
+
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
-      const text = paragraphs.join(". ");
-      btnAudioEl.disabled = true;
-      btnAudioEl.textContent = "🔊 Generando audio...";
-      try {
-        const resp = await fetch("/api/tts", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ text })
-        });
-        if(!resp.ok) throw new Error("Error al generar audio");
-        const blob = await resp.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.play();
-        audio.onended = ()=>{ URL.revokeObjectURL(audioUrl); };
-      } catch(err) {
-        console.error(err);
-        alert("No se pudo reproducir el audio.");
-      } finally {
-        btnAudioEl.disabled = false;
-        btnAudioEl.textContent = "🔊 Leer";
+
+      // Si estamos en AppCreator24, pedimos al backend TTS (tts.js -> UnrealSpeech) que retorne audio (blob)
+      if(isAppCreator24()){
+        // bloqueo UI breve
+        btnAudioEl.disabled = true;
+        const prevText = btnAudioEl.textContent;
+        btnAudioEl.textContent = "🔊 Generando voz...";
+        try {
+          // solicitamos TTS (tu tts.js debe devolver audio (audio/mpeg) como blob)
+          const resp = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: paragraphs.join(". ") })
+          });
+
+          if (!resp.ok) throw new Error("TTS error: " + resp.status);
+          const blob = await resp.blob();
+          // si la respuesta viene como JSON con url en lugar de blob, también lo soportamos:
+          const contentType = resp.headers.get("Content-Type") || "";
+          let audioUrl;
+          if (contentType.includes("application/json")) {
+            // esperar { url: "https://..." } o { audioBase64: "data:audio/..." }
+            const j = await resp.json().catch(()=>null);
+            if (j && j.url) {
+              audioUrl = j.url;
+            } else if (j && j.audioBase64) {
+              audioUrl = j.audioBase64;
+            } else {
+              throw new Error("Respuesta JSON inválida de /api/tts");
+            }
+          } else {
+            // recibimos blob de audio
+            audioUrl = URL.createObjectURL(blob);
+          }
+
+          // reproducir audio
+          const audio = new Audio(audioUrl);
+          audio.play().catch(err => { console.error("play error", err); });
+
+          // highlight en tiempo real: iniciamos loop que pase por párrafos aproximadamente
+          let idx = 0;
+          clearInterval(highlightInterval);
+          highlightInterval = setInterval(()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            if(idx < paragraphElements.length){
+              paragraphElements[idx].classList.add("highlight");
+              paragraphElements[idx].scrollIntoView({behavior:"smooth", block:"center"});
+            }
+            idx++;
+            if(idx > paragraphElements.length + 2) { // safety stop
+              clearInterval(highlightInterval);
+            }
+          }, 700); // ritmo aproximado; no intentamos sincronizar palabra a palabra.
+
+          audio.onended = ()=>{
+            paragraphElements.forEach(p=>p.classList.remove("highlight"));
+            clearInterval(highlightInterval);
+            if (audioUrl.startsWith("blob:")) URL.revokeObjectURL(audioUrl);
+            btnAudioEl.textContent = prevText;
+            btnAudioEl.disabled = false;
+          };
+
+        } catch(err){
+          console.error("TTS error (AppCreator):", err);
+          alert("Audio no disponible en AppCreator24.");
+          btnAudioEl.textContent = prevText;
+          btnAudioEl.disabled = false;
+          clearInterval(highlightInterval);
+        }
+        return;
+      }
+
+      // En navegadores normales: usar Web Speech API (speechSynthesis)
+      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+        const synth = window.speechSynthesis;
+        if (synth.speaking || paused) {
+          if (!paused) { synth.pause(); paused = true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval); }
+          else { synth.resume(); paused = false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+        } else {
+          currentParagraphIndex = 0;
+          speakNext();
+        }
+      } else {
+        // fallback: intentar pedir TTS al servidor si browser no soporta speechSynthesis
+        try {
+          btnAudioEl.disabled = true;
+          const resp = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: paragraphs.join(". ") })
+          });
+          if (!resp.ok) throw new Error("Error TTS fallback");
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          await audio.play();
+          audio.onended = ()=> { URL.revokeObjectURL(url); btnAudioEl.disabled = false; };
+        } catch(e){
+          console.error("fallback TTS error", e);
+          btnAudioEl.disabled = false;
+        }
       }
     });
+
+    function startHighlightLoop(){
+      clearInterval(highlightInterval);
+      highlightInterval = setInterval(()=>{
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(currentParagraphIndex < paragraphElements.length){
+          paragraphElements[currentParagraphIndex].classList.add("highlight");
+          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
+        }
+      }, 50);
+    }
+
+    function speakNext(){
+      if (currentParagraphIndex >= paragraphs.length) {
+        btnAudioEl.classList.remove("speaking");
+        btnAudioEl.style.border="2px solid transparent";
+        currentParagraphIndex = 0;
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if (screenContainer) screenContainer.scrollTop = 0;
+        speech = null;
+        clearInterval(highlightInterval);
+        return;
+      }
+      const paragraph = paragraphs[currentParagraphIndex];
+      const u = new SpeechSynthesisUtterance(paragraph);
+      u.lang = 'es-ES';
+      speech = u;
+      window.speechSynthesis.speak(u);
+      btnAudioEl.classList.add("speaking");
+      btnAudioEl.style.border="2px solid #00f0ff";
+      paused = false;
+      startHighlightLoop();
+      u.onend = ()=>{
+        currentParagraphIndex++;
+        speakNext();
+      };
+    }
+
   })();
   </script>
 </body>
