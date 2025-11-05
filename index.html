@@ -139,9 +139,83 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- Scripts -->
-  <script src="./proxy.js"></script>
-  <script src="./tts.js"></script>
-  <script src="./main.js"></script>
+  <script>
+  (function(){
+    const input=document.getElementById('pokemonInput');
+    const buscarBtn=document.getElementById('buscarBtn');
+    const clearBtn=document.getElementById('clearBtn');
+    const screen=document.getElementById('screen');
+    const screenContainer=document.getElementById('screenContainer');
+    const btnAudioEl=document.getElementById('btnAudio');
+
+    let paragraphs=[],paragraphElements=[],currentParagraphIndex=0;
+    let speech=null,paused=false;
+    let highlightInterval=null;
+
+    function isAppCreator24(){
+      return navigator.userAgent.includes("AppCreator24") || window.location!==window.parent.location;
+    }
+
+    function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):"";}
+    function splitText(t){return t?t.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l):[];}
+    function organize(t){
+      const paras=splitText(t),sections={};
+      paras.forEach(p=>{
+        const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
+        if(m){let tag=m[1].trim();if(tag.toLowerCase().includes("ataques"))tag="Ataques";const c=m[2].trim();if(!sections[tag])sections[tag]=[];sections[tag].push(c);}
+        else{if(!sections["Información"])sections["Información"]=[];sections["Información"].push(p);}
+      });
+      if(!sections["Información"]||!sections["Información"].length)sections["Información"]=["Información no disponible"];
+      Object.keys(sections).forEach(t=>{sections[t]=sections[t].filter(l=>l.trim());if(!sections[t].length)sections[t]=["Información no disponible"];});
+      const out=[];Object.keys(sections).forEach(tag=>{if(sections[tag].length)out.push({tag,text:sections[tag].join(" ")});});
+      const html=out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
+      const parasForTTS=out.map(s=>s.tag+": "+s.text);return{html,parasForTTS};
+    }
+
+    function showLoading(n){if(speech&&window.speechSynthesis)window.speechSynthesis.cancel();screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(n)}</strong>...</p>`;btnAudioEl.style.display="none";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";clearInterval(highlightInterval);}
+    function showError(m){screen.innerHTML=`<p>❌ ${esc(m)}</p>`;btnAudioEl.style.display="none";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";clearInterval(highlightInterval);}
+
+    async function buscarPokemon(nombre){
+      if(!nombre)return;
+      showLoading(nombre);
+      try{
+        const r=await fetch("/api/proxy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pokemon:nombre})});
+        if(!r.ok){showError("Error en el servidor: "+r.status);return;}
+        const d=await r.json();
+        if(d.error||!d.respuesta){showError(d.error||"No se recibió respuesta.");return;}
+        const s=d.sprite||"",o=organize(d.respuesta);
+        screen.innerHTML=(s?`<img src="${esc(s)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+`<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+`<div id="resultado">${o.html}</div>`;
+        paragraphs=o.parasForTTS;paragraphElements=Array.from(document.querySelectorAll("#resultado p"));currentParagraphIndex=0;btnAudioEl.style.display="block";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";speech=null;
+        screenContainer.style.maxHeight="60vh";screenContainer.style.minHeight="320px";screenContainer.style.width="100%";
+      }catch(e){console.error(e);showError("Error al conectar con el servidor.");}
+    }
+
+    buscarBtn.addEventListener("click",()=>{const n=(input.value||"").trim().toLowerCase();if(!n){alert("Ingresa un nombre de Pokémon");return;}if(window.speechSynthesis)window.speechSynthesis.cancel();buscarPokemon(n);});
+    input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();buscarBtn.click();}});
+    clearBtn.addEventListener("click",()=>{input.value="";screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;btnAudioEl.style.display="none";btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";paragraphs=[];paragraphElements=[];currentParagraphIndex=0;paused=false;if(window.speechSynthesis)window.speechSynthesis.cancel();clearInterval(highlightInterval);screenContainer.style.maxHeight="50vh";screenContainer.style.minHeight="280px";screenContainer.style.width="100%";});
+
+    // ✅ Ajuste: Voz dual (UnrealSpeech para AppCreator24 / SpeechSynthesis para navegador)
+    btnAudioEl.addEventListener("click", async ()=>{
+      if(!paragraphs.length)return;
+      if(isAppCreator24()){
+        try{
+          btnAudioEl.disabled=true;
+          btnAudioEl.textContent="🔊 Generando voz...";
+          const resp=await fetch("/api/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:paragraphs.join(". ")})});
+          if(!resp.ok)throw new Error("Error al generar audio TTS");
+          const blob=await resp.blob();const url=URL.createObjectURL(blob);const audio=new Audio(url);
+          await audio.play();
+          btnAudioEl.textContent="🔊 Leer";btnAudioEl.disabled=false;
+        }catch(err){console.error(err);alert("Audio no disponible en AppCreator24.");btnAudioEl.textContent="🔊 Leer";btnAudioEl.disabled=false;}
+      }else{
+        const synth=window.speechSynthesis;
+        if(synth.speaking||paused){if(!paused){synth.pause();paused=true;btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";clearInterval(highlightInterval);}else{synth.resume();paused=false;btnAudioEl.classList.add("speaking");btnAudioEl.style.border="2px solid #00f0ff";startHighlightLoop();}}else{currentParagraphIndex=0;speakNext();}
+      }
+    });
+
+    function startHighlightLoop(){clearInterval(highlightInterval);highlightInterval=setInterval(()=>{paragraphElements.forEach(p=>p.classList.remove("highlight"));if(currentParagraphIndex<paragraphElements.length){paragraphElements[currentParagraphIndex].classList.add("highlight");paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth",block:"center"});}},50);}
+    function speakNext(){if(currentParagraphIndex>=paragraphs.length){btnAudioEl.classList.remove("speaking");btnAudioEl.style.border="2px solid transparent";currentParagraphIndex=0;paragraphElements.forEach(p=>p.classList.remove("highlight"));if(screenContainer)screenContainer.scrollTop=0;speech=null;clearInterval(highlightInterval);return;}const paragraph=paragraphs[currentParagraphIndex];const u=new SpeechSynthesisUtterance(paragraph);u.lang='es-ES';speech=u;window.speechSynthesis.speak(u);btnAudioEl.classList.add("speaking");btnAudioEl.style.border="2px solid #00f0ff";paused=false;startHighlightLoop();u.onend=()=>{currentParagraphIndex++;speakNext();};}
+  })();
+  </script>
 </body>
 </html>
