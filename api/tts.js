@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: text,
-        VoiceId: "Scarlett" // Puedes cambiar por Liv, Amy, Dan o Will
+        VoiceId: "Amy", // ✅ voz confirmada como funcional
       }),
     });
 
