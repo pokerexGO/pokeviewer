@@ -1,45 +1,35 @@
 // api/tts.js
 import fs from "fs";
 import path from "path";
+import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método no permitido" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: "Se requiere texto" });
 
   try {
-    const { text } = req.body;
-    if (!text) return res.status(400).json({ error: "Texto vacío" });
+    // Llamada a tu API de TTS (por ejemplo, UnrealSpeech)
+    const apiKey = process.env.TTS_API_KEY;
+    if(!apiKey) return res.status(500).json({ error: "API Key no configurada" });
 
-    const unrealKey = process.env.UNREAL_API_KEY;
-    if (!unrealKey) return res.status(500).json({ error: "Falta la clave UnrealSpeech" });
-
-    // Petición al servicio TTS
-    const response = await fetch("https://api.v7.unrealspeech.com/stream", {
+    const ttsResp = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${unrealKey}`,
-        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        Text: text,
-        VoiceId: "Amy",
-      }),
+      body: JSON.stringify({ text, voiceId: "Amy" })
     });
 
-    if (!response.ok) throw new Error("Error al generar audio UnrealSpeech");
+    if (!ttsResp.ok) return res.status(500).json({ error: "Error en TTS" });
 
-    // Guardar el audio temporalmente
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const filename = `audio_${Date.now()}.mp3`;
-    const filePath = path.join("/tmp", filename);
-    fs.writeFileSync(filePath, buffer);
-
-    // Retornar la URL del audio (Vercel sirve /tmp como archivo público temporal)
-    const audioUrl = `https://${req.headers.host}/api/temp-audio?file=${filename}`;
-    res.status(200).json({ url: audioUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    const buffer = await ttsResp.arrayBuffer();
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(Buffer.from(buffer));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error generando audio" });
   }
 }
