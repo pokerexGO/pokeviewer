@@ -1,43 +1,47 @@
 // api/tts.js
+import express from "express";
 import fetch from "node-fetch";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Método no permitido" });
-    return;
-  }
+const router = express.Router();
 
-  const { text } = req.body;
-  if (!text) {
-    res.status(400).json({ error: "Se requiere texto para TTS" });
-    return;
-  }
-
+router.post("/", async (req, res) => {
   try {
-    // ⚡ API de TTS (ejemplo UnrealSpeech)
-    const apiKey = process.env.UNREAL_TTS_KEY; // tu clave en Vercel
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "No text provided" });
+
+    // Llamada a UnrealSpeech API
     const ttsResp = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${process.env.UNREAL_API_KEY}`
       },
       body: JSON.stringify({
-        text,
-        voiceId: "Amy", // puedes cambiar a "Scarlett" si quieres
-        format: "mp3"
+        voice: "Amy",   // Cambia a Liv, Scarlett, Will, Dan, Amy
+        text
       })
     });
 
-    if (!ttsResp.ok) throw new Error("Error al generar audio TTS");
+    if (!ttsResp.ok) {
+      const errorText = await ttsResp.text();
+      console.error("UnrealSpeech error:", errorText);
+      return res.status(500).json({ error: "TTS API error" });
+    }
 
-    const audioBuffer = await ttsResp.arrayBuffer();
+    const arrayBuffer = await ttsResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-cache");
-    res.status(200).send(Buffer.from(audioBuffer));
+    // Enviar audio directamente
+    res.set({
+      "Content-Type": "audio/mpeg",
+      "Content-Length": buffer.length
+    });
+    res.send(buffer);
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "No se pudo generar el audio" });
+    res.status(500).json({ error: "Error generating TTS" });
   }
-}
+});
+
+export default router;
