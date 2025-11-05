@@ -139,94 +139,9 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <script>
-  (function(){
-    const input = document.getElementById('pokemonInput');
-    const buscarBtn = document.getElementById('buscarBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const screen = document.getElementById('screen');
-    const screenContainer = document.getElementById('screenContainer');
-    const btnAudioEl = document.getElementById('btnAudio');
-
-    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
-    let speech=null, paused=false;
-    let highlightInterval=null;
-
-    function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-
-    function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
-
-    function organize(text){
-      const paras = splitText(text);
-      const sections = {};
-      paras.forEach(p=>{
-        const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
-        if(m){
-          let tag = m[1].trim();
-          if(tag.toLowerCase().includes("ataques recomendados")) tag="Ataques";
-          const content = m[2].trim();
-          if(!sections[tag]) sections[tag]=[];
-          sections[tag].push(content);
-        } else {
-          if(!sections["Información"]) sections["Información"]=[]; 
-          sections["Información"].push(p);
-        }
-      });
-      if(!sections["Información"] || sections["Información"].length===0) sections["Información"]=["Información no disponible"];
-      Object.keys(sections).forEach(tag=>{
-        sections[tag] = sections[tag].filter(line=>line.trim());
-        if(sections[tag].length===0) sections[tag]=["Información no disponible"];
-      });
-      const out=[];
-      Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = out.map(s=>s.tag+": "+s.text);
-      return {html, parasForTTS};
-    }
-
-    async function buscarPokemon(nombre){
-      if(!nombre) return;
-      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(nombre)}</strong>...</p>`;
-      btnAudioEl.style.display="none";
-      try{
-        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
-        if(!resp.ok){ screen.innerHTML="<p>Error al buscar el Pokémon.</p>"; return; }
-        const data = await resp.json();
-        if(data.error || !data.respuesta){ screen.innerHTML="<p>No se encontró información.</p>"; return; }
-
-        const sprite = data.sprite||"";
-        const organized = organize(data.respuesta);
-        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" class="pokemon-img" alt="${esc(nombre)}">`:"")+`<h2 style="text-align:center;color:var(--accent)">${esc(nombre.toUpperCase())}</h2><div id='resultado'>${organized.html}</div>`;
-        paragraphs = organized.parasForTTS;
-        paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        btnAudioEl.style.display="block";
-      }catch(err){console.error(err);screen.innerHTML="<p>Error al conectar con el servidor.</p>";}
-    }
-
-    buscarBtn.addEventListener("click",()=>{const nombre=(input.value||"").trim().toLowerCase();if(nombre)buscarPokemon(nombre);else alert("Ingresa un nombre de Pokémon");});
-    input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();buscarBtn.click();}});
-    clearBtn.addEventListener("click",()=>{input.value="";screen.innerHTML="<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>";btnAudioEl.style.display="none";paragraphs=[];});
-
-    // 🔊 Reproduce el audio usando el proxy del TTS
-    btnAudioEl.addEventListener("click", async ()=>{
-      if(!paragraphs.length){alert("Busca primero un Pokémon");return;}
-      btnAudioEl.disabled=true;
-      btnAudioEl.textContent="🔄 Generando voz...";
-      try{
-        const response = await fetch("/api/proxy/tts", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({text:paragraphs.join(". ")})
-        });
-        if(!response.ok) throw new Error("Error en TTS");
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        await audio.play();
-      }catch(err){console.error(err);alert("Audio no disponible en AppCreator24");}
-      finally{btnAudioEl.disabled=false;btnAudioEl.textContent="🔊 Leer";}
-    });
-  })();
-  </script>
+  <!-- Scripts -->
+  <script src="./proxy.js"></script>
+  <script src="./tts.js"></script>
+  <script src="./main.js"></script>
 </body>
 </html>
