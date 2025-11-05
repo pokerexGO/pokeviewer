@@ -1,22 +1,14 @@
-// api/proxy.js
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método no permitido" });
-  }
-
   try {
     const { pokemon } = req.body;
-    if (!pokemon) return res.status(400).json({ error: "Nombre no proporcionado" });
+    if (!pokemon) return res.status(400).json({ error: "Falta el nombre del Pokémon" });
 
-    const apiUrl = `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(pokemon.toLowerCase())}`;
-    const response = await fetch(apiUrl);
-    if (!response.ok) throw new Error("Pokémon no encontrado");
+    const respuesta = `Nombre: ${pokemon}. Tipo: Agua. Descripción: Un Pokémon con una gran afinidad por el océano.`;
+    const sprite = `https://img.pokemondb.net/artwork/${pokemon}.jpg`;
 
-    const data = await response.json();
-    const respuesta = `Nombre: ${data.name}. Altura: ${data.height}. Peso: ${data.weight}. Tipo: ${data.types.map(t=>t.type.name).join(", ")}.`;
-
-    res.status(200).json({ respuesta });
-  } catch (error) {
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.json({ respuesta, sprite });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error en el proxy" });
   }
 }
