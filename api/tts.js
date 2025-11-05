@@ -19,15 +19,12 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: text,
-        VoiceId: "Will",   // Puedes cambiarlo por "Dan", "Scarlett", "Sophie", etc.
-        Bitrate: "192k",
-        Speed: "1.0",
-        Pitch: "1.0",
-        Codec: "libmp3lame",
+        VoiceId: "Scarlett" // Puedes cambiar por Liv, Amy, Dan o Will
       }),
     });
 
     if (!response.ok) throw new Error("Error al generar audio UnrealSpeech");
+
     const audioBuffer = await response.arrayBuffer();
     res.setHeader("Content-Type", "audio/mpeg");
     res.send(Buffer.from(audioBuffer));
