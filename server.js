@@ -1,73 +1,66 @@
+// server.js
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import bodyParser from "body-parser";
+import fetch from "node-fetch";
+import OpenAI from "openai";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(bodyParser.json());
 
+// --- API Proxy para Pokémon ---
 app.post("/api/proxy", async (req, res) => {
   try {
     const { pokemon } = req.body;
-    if (!pokemon) return res.status(400).json({ error: "Falta el nombre del Pokémon" });
+    if (!pokemon) return res.status(400).json({ error: "No se recibió nombre de Pokémon" });
 
-    // Ejemplo de respuesta simulada (puedes adaptar con tu API real de Gemini)
-    const respuesta = `Nombre: ${pokemon}. Tipo: Eléctrico. Descripción: Un Pokémon muy amigable y poderoso.`;
-    const sprite = `https://img.pokemondb.net/artwork/${pokemon}.jpg`;
+    const targetUrl = "https://pokeasistente-ia-generative.vercel.app/api/pokemon";
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pokemon })
+    });
 
-    res.json({ respuesta, sprite });
+    const data = await response.json();
+    res.status(response.status).json(data);
   } catch (err) {
-    console.error("Error en proxy:", err);
-    res.status(500).json({ error: "Error en el servidor." });
+    console.error("Error proxy Pokémon:", err);
+    res.status(500).json({ error: "Error conectando con la API principal" });
   }
 });
 
-// 🔊 Nueva ruta para Unreal Speech
+// --- API TTS usando OpenAI ---
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
 app.post("/api/tts", async (req, res) => {
   try {
     const { text } = req.body;
-    if (!text) return res.status(400).json({ error: "Texto vacío" });
+    if (!text || text.trim() === "") return res.status(400).json({ error: "Texto vacío" });
 
-    const unrealKey = process.env.UNREAL_KEY;
-    if (!unrealKey) return res.status(500).json({ error: "Falta la API Key de Unreal Speech" });
-
-    const resp = await fetch("https://api.v7.unrealspeech.com/stream", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${unrealKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        Text: text,
-        VoiceId: "Daniel",
-        Bitrate: "192k",
-        Speed: "0",
-        Pitch: "1",
-        Codec: "mp3"
-      })
+    const response = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: text
     });
 
-    if (!resp.ok) {
-      const msg = await resp.text();
-      return res.status(500).json({ error: "Error Unreal Speech: " + msg });
-    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const base64Audio = `data:audio/mpeg;base64,${buffer.toString("base64")}`;
 
-    const arrayBuffer = await resp.arrayBuffer();
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.send(Buffer.from(arrayBuffer));
+    res.json({ audioBase64: base64Audio });
   } catch (err) {
-    console.error("Error TTS Unreal:", err);
-    res.status(500).json({ error: "Fallo al generar audio" });
+    console.error("Error TTS:", err);
+    res.status(500).json({ error: "Error generando audio" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
+// --- Iniciar servidor ---
 app.listen(PORT, () => {
-  console.log(`Servidor funcionando en http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
+
+export default app;
+
