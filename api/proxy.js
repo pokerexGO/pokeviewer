@@ -1,19 +1,22 @@
-
+// api/proxy.js
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Método no permitido" });
   }
 
-  const { pokemon } = req.body;
-
   try {
-    // ✅ Aquí conectas con tu API de texto (Gemini u otro backend)
-    const respuestaIA = `Aquí iría la descripción del Pokémon ${pokemon}. Este texto es un ejemplo simulado.`; 
-    const sprite = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${Math.floor(Math.random() * 150) + 1}.png`;
+    const { pokemon } = req.body;
+    if (!pokemon) return res.status(400).json({ error: "Nombre no proporcionado" });
 
-    res.status(200).json({ respuesta: respuestaIA, sprite });
+    const apiUrl = `https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(pokemon.toLowerCase())}`;
+    const response = await fetch(apiUrl);
+    if (!response.ok) throw new Error("Pokémon no encontrado");
+
+    const data = await response.json();
+    const respuesta = `Nombre: ${data.name}. Altura: ${data.height}. Peso: ${data.weight}. Tipo: ${data.types.map(t=>t.type.name).join(", ")}.`;
+
+    res.status(200).json({ respuesta });
   } catch (error) {
-    console.error("Error en proxy:", error);
-    res.status(500).json({ error: "Error interno en proxy" });
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 }
