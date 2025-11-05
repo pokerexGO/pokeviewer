@@ -1,66 +1,83 @@
-// server.js
 import express from "express";
 import dotenv from "dotenv";
-import bodyParser from "body-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import fetch from "node-fetch";
-import OpenAI from "openai";
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-// --- API Proxy para Pokémon ---
-app.post("/api/proxy", async (req, res) => {
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+async function generarRespuesta(prompt) {
   try {
-    const { pokemon } = req.body;
-    if (!pokemon) return res.status(400).json({ error: "No se recibió nombre de Pokémon" });
-
-    const targetUrl = "https://pokeasistente-ia-generative.vercel.app/api/pokemon";
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pokemon })
-    });
-
-    const data = await response.json();
-    res.status(response.status).json(data);
+    const result = await model.generateContent(prompt);
+    return result.response.text();
   } catch (err) {
-    console.error("Error proxy Pokémon:", err);
-    res.status(500).json({ error: "Error conectando con la API principal" });
+    console.error("Error generando respuesta IA:", err);
+    return "No se pudo generar la descripción en este momento.";
   }
-});
+}
 
-// --- API TTS usando OpenAI ---
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-app.post("/api/tts", async (req, res) => {
+// ✅ RUTA POST COMPATIBLE CON TU SCRIPT ORIGINAL
+app.post("/api/pokemon", async (req, res) => {
   try {
-    const { text } = req.body;
-    if (!text || text.trim() === "") return res.status(400).json({ error: "Texto vacío" });
+    const nombre = (req.body.pokemon || "").toLowerCase();
+    if (!nombre) {
+      return res.status(400).json({ error: "No se envió nombre del Pokémon" });
+    }
 
-    const response = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: text
-    });
+    // Obtener datos base desde PokeAPI
+    const pokeRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${nombre}`);
+    if (!pokeRes.ok) {
+      return res.json({ respuesta: null });
+    }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const base64Audio = `data:audio/mpeg;base64,${buffer.toString("base64")}`;
+    const pokeData = await pokeRes.json();
 
-    res.json({ audioBase64: base64Audio });
-  } catch (err) {
-    console.error("Error TTS:", err);
-    res.status(500).json({ error: "Error generando audio" });
+    // Extraer datos del Pokémon
+    const tipos = pokeData.types.map(t => t.type.name).join(", ");
+    const habilidades = pokeData.abilities.map(a => a.ability.name).join(", ");
+    const ataques = pokeData.moves.length
+      ? pokeData.moves.slice(0, 5).map(m => m.move.name.replace(/-/g, " ")).join(", ")
+      : "Información no disponible";
+
+    const baseStats = pokeData.stats
+      .map(s => `${s.stat.name}: ${s.base_stat}`)
+      .join(" | ");
+
+    const sprite = pokeData.sprites?.other?.["official-artwork"]?.front_default || "";
+
+    // Prompt mejorado pero breve
+    const prompt = `Eres un experto en Pokémon GO.
+Redacta una descripción ordenada, clara y con buen formato sobre ${nombre}.
+Incluye los siguientes apartados (máx. 4 líneas cada uno):
+
+Tipo: ${tipos}
+Habilidades: ${habilidades}
+Ataques recomendados: ${ataques}
+Fortalezas: describe sus principales ventajas o resistencias.
+Debilidades: tipos que lo afectan más.
+Estrategias: cómo usarlo en combate.
+Consejos: sugerencias útiles de entrenamiento.
+
+No repitas información ni uses texto extenso.`;
+
+    const respuestaIA = await generarRespuesta(prompt);
+
+    res.json({ respuesta: respuestaIA, sprite });
+  } catch (error) {
+    console.error("Error en /api/pokemon:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
-});
-
-// --- Iniciar servidor ---
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
 export default app;
-
