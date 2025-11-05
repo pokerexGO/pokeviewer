@@ -132,6 +132,9 @@
     </div>
   </div>
 
+  <!-- ⚡️ iframe oculto para reproducir audio en AppCreator24 -->
+  <iframe id="audioFrame" style="display:none;"></iframe>
+
   <div class="rayo r1"></div>
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
@@ -144,6 +147,7 @@
     const screen = document.getElementById('screen');
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
+    const iframeAudio = document.getElementById('audioFrame'); // 🎧 iframe agregado
 
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let paused=false, highlightInterval=null;
@@ -189,27 +193,27 @@
 
     async function reproducirVozTTS(texto){
       try{
-        const resp = await fetch("/api/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:texto})});
-        if(!resp.ok) throw new Error("TTS no disponible");
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.play();
+        if(esAppCreator()){
+          // ⚡️ Nueva forma: usar el iframe oculto para reproducir audio
+          iframeAudio.src = `/api/tts?text=${encodeURIComponent(texto)}`;
+        } else {
+          // Navegador normal
+          const resp = await fetch("/api/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:texto})});
+          if(!resp.ok) throw new Error("TTS no disponible");
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.play();
+        }
       }catch(e){
-        alert("Audio no disponible en AppCreator24");
+        alert("Audio no disponible");
       }
     }
 
     btnAudioEl.addEventListener("click", async()=>{
       if(!paragraphs.length) return;
       const texto = paragraphs.join(". ");
-      if(esAppCreator()){
-        await reproducirVozTTS(texto);
-      } else {
-        const u = new SpeechSynthesisUtterance(texto);
-        u.lang = "es-ES";
-        window.speechSynthesis.speak(u);
-      }
+      await reproducirVozTTS(texto);
     });
 
   })();
