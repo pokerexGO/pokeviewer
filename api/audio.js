@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
@@ -13,8 +16,7 @@ export default async function handler(req, res) {
         VoiceId: "Will",
         Bitrate: "192k",
         Speed: "1.0",
-        Codec: "libmp3lame",   // 👈 CORRECTO según UnrealSpeech (ya no se usa "mp3")
-        OutputFormat: "mp3"    // 👈 RECOMENDADO: formato final del archivo
+        Codec: "libmp3lame", // ✅ formato correcto
       }),
     });
 
@@ -23,13 +25,20 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    // Convertir el audio a Base64 (crea una URL temporal reproducible)
+    // Guardar el audio temporalmente en /tmp (carpeta temporal de Vercel)
     const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-    const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
+    const buffer = Buffer.from(arrayBuffer);
+    const filename = `voz-${Date.now()}.mp3`;
+    const filepath = path.join("/tmp", filename);
 
-    // Devolver la URL lista para el navegador o AppCreator24
-    res.status(200).json({ url: audioUrl });
+    fs.writeFileSync(filepath, buffer);
+
+    // Construir una URL pública temporal
+    const publicUrl = `https://${req.headers.host}/api/temp-audio?file=${filename}`;
+
+    // Devolver la URL
+    res.status(200).json({ url: publicUrl });
+
   } catch (error) {
     console.error("Error en proxy UnrealSpeech:", error);
     res.status(500).json({ error: "Error al conectar con UnrealSpeech" });
