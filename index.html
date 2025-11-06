@@ -261,27 +261,9 @@ input[type="text"]{
     const utter=new SpeechSynthesisUtterance(p.textContent);
     utter.lang="es-ES";
     utter.rate=1;
-    utter.onboundary=(event)=>{
-      if(event.name==="word"){
-        resaltarPalabra(event.charIndex);
-      }
-    };
-    utter.onend=()=>{
-      p.innerHTML=palabras.join(" ");
-    };
+    utter.onend=()=>{p.innerHTML=palabras.join(" ");};
     synth.cancel();
     synth.speak(utter);
-  }
-
-  // resaltar palabra actual
-  function resaltarPalabra(charIndex){
-    const p=document.getElementById("texto");
-    if(!p)return;
-    let texto=p.textContent;
-    let hasta=charIndex;
-    let anterior=texto.slice(0,hasta);
-    let siguiente=texto.slice(hasta);
-    p.innerHTML=`${anterior}<span class="highlight">${siguiente.split(" ")[0]}</span>${siguiente.substring(siguiente.split(" ")[0].length)}`;
   }
 
   buscarBtn.onclick=()=>{
@@ -307,4 +289,3 @@ input[type="text"]{
 </script>
 </body>
 </html>
-
