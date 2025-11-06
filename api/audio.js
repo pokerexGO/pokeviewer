@@ -1,3 +1,7 @@
+export const config = {
+  runtime: "nodejs"
+};
+
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
@@ -6,14 +10,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Falta el texto" });
     }
 
-    // Clave API desde variable de entorno de Vercel
     const apiKey = process.env.UNREAL_API_KEY;
     if (!apiKey) {
       console.error("❌ No se encontró UNREAL_API_KEY en variables de entorno");
       return res.status(500).json({ error: "Falta la clave API" });
     }
 
-    // Llamada directa a UnrealSpeech
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -37,11 +39,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Error al conectar con UnrealSpeech" });
     }
 
-    // Convertimos el audio en base64
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-
-    // Creamos URL temporal en base64 (no requiere archivos)
     const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
 
     res.status(200).json({ url: audioUrl });
