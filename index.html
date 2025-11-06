@@ -151,7 +151,9 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
-    let isAppCreator = /appcreator/i.test(navigator.userAgent); // Detect AppCreator
+    let audioURL=null;
+
+    const isAppCreator = navigator.userAgent.includes("AppCreator"); // detectar AppCreator24
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -186,12 +188,12 @@
     }
 
     function showLoading(name){
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       clearInterval(highlightInterval);
+      audioURL=null;
     }
 
     function showError(msg){
@@ -200,6 +202,7 @@
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       clearInterval(highlightInterval);
+      audioURL=null;
     }
 
     async function buscarPokemon(nombre){
@@ -226,9 +229,17 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
+
+        // Solicitar generación de audio en tu proxy y obtener URL pública
+        try {
+          const audioResp = await fetch("/api/tts", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text: data.respuesta})});
+          const audioData = await audioResp.json();
+          if(audioData.url) audioURL = audioData.url;
+        } catch(e){ console.warn("No se pudo generar audio:", e); }
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
@@ -236,7 +247,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      if(!isAppCreator && window.speechSynthesis) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -249,50 +260,32 @@
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      if(!isAppCreator && window.speechSynthesis) window.speechSynthesis.cancel();
       clearInterval(highlightInterval);
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
+      audioURL=null;
     });
 
-    // Botón Leer adaptado para navegadores y AppCreator
-    btnAudioEl.addEventListener("click", async ()=>{
-      if(!paragraphs.length) return;
-
-      if(isAppCreator){
-        // AppCreator24: Generar audio vía proxy
-        try{
-          const textToRead = paragraphs.join(" ");
-          btnAudioEl.disabled = true;
-          btnAudioEl.textContent = "🎵 Generando audio...";
-          const resp = await fetch("/api/tts", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text:textToRead})});
-          if(!resp.ok) throw new Error("Error generando audio: "+resp.status);
-          const data = await resp.json();
-          if(!data.audioUrl) throw new Error("No se recibió URL de audio.");
-
-          // Reproducir audio en la misma ventana
-          const audio = new Audio(data.audioUrl);
-          audio.play();
-          btnAudioEl.textContent = "🔊 Leer";
-          btnAudioEl.disabled = false;
-
-        } catch(err){
-          console.error(err);
-          btnAudioEl.textContent = "🔊 Leer";
-          btnAudioEl.disabled = false;
-          alert("No se pudo reproducir el audio.");
-        }
-        return;
-      }
-
-      // Navegador normal: usar SpeechSynthesis con resaltado
-      const synth = window.speechSynthesis;
-      if(synth.speaking || paused){
-        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-      } else { currentParagraphIndex=0; speakNext(); }
-    });
+    if(isAppCreator){
+      // AppCreator24: reproducir audio desde URL pública sin resaltar
+      btnAudioEl.addEventListener("click", ()=>{
+        if(!audioURL){ alert("El audio no está disponible aún."); return; }
+        const audioEl = new Audio(audioURL);
+        audioEl.play();
+      });
+    } else if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
+      // Otros navegadores: TTS con resalte
+      btnAudioEl.addEventListener("click", ()=>{
+        if(!paragraphs.length) return;
+        const synth = window.speechSynthesis;
+        if(synth.speaking || paused){
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+        } else { currentParagraphIndex=0; speakNext(); }
+      });
+    } else btnAudioEl.style.display="none";
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
