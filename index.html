@@ -58,6 +58,7 @@
       overflow:auto;
       box-sizing:border-box;
       transition: width 0.3s, max-height 0.3s;
+      position:relative;
     }
 
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
@@ -154,6 +155,13 @@
     // 🔍 Detectar si está dentro de AppCreator24
     const isAppCreator = /appcreator24/i.test(navigator.userAgent);
 
+    // NUEVO: <p> de estado para mostrar logs en pantalla
+    const statusP = document.createElement("p");
+    statusP.style.color = "#0ff";
+    statusP.style.fontWeight = "700";
+    statusP.style.textAlign = "center";
+    screenContainer.appendChild(statusP);
+
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
@@ -212,53 +220,44 @@
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
     clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; });
 
-    // 🔊 Función de lectura dual con logs para AppCreator24
-    btnAudioEl.addEventListener("click", async () => {
-      if (!paragraphs.length) return;
+    // 🔊 Función de lectura dual
+    btnAudioEl.addEventListener("click", async ()=>{
+      if(!paragraphs.length){ alert("No hay texto para leer"); return; }
+      statusP.textContent = "";
 
-      // Crear elemento de estado si no existe
-      const statusElId = "audioStatus";
-      let statusEl = document.getElementById(statusElId);
-      if (!statusEl) {
-        statusEl = document.createElement("p");
-        statusEl.id = statusElId;
-        statusEl.style.color = "#ffcc00";
-        statusEl.style.textAlign = "center";
-        statusEl.style.marginTop = "6px";
-        screenContainer.appendChild(statusEl);
-      }
-      statusEl.textContent = "";
-
-      if (isAppCreator) {
-        try {
+      // AppCreator24 → UnrealSpeech
+      if(isAppCreator){
+        statusP.textContent = "Detectado AppCreator24, generando audio...";
+        try{
           const fullText = paragraphs.join(" ");
-          statusEl.textContent = "🔊 Generando audio...";
-          const resp = await fetch("/api/audio", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: fullText }),
+          btnAudioEl.textContent="🔊 Generando audio...";
+          
+          const resp = await fetch("/api/audio",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({text:fullText})
           });
+
+          if(!resp.ok) throw new Error("Error en la respuesta del servidor: "+resp.status);
+
           const data = await resp.json();
-          if (data.url) {
-            statusEl.textContent = "🔊 Reproduciendo audio...";
-            const audio = new Audio(data.url);
-            audio.play().catch(() => { statusEl.textContent = "❌ Error al reproducir audio"; });
-            audio.onended = () => { statusEl.textContent = "🔊 Leer"; };
-          } else {
-            statusEl.textContent = "❌ Error: no se recibió URL de audio";
-          }
-        } catch {
-          statusEl.textContent = "❌ Error al conectar con TTS";
-        }
+          if(!data.url){ btnAudioEl.textContent="❌ Error"; statusP.textContent="No se recibió URL del audio."; return; }
+
+          const audio = new Audio(data.url);
+          btnAudioEl.textContent="🔊 Reproduciendo...";
+          statusP.textContent = "Audio reproduciéndose...";
+          audio.play();
+          audio.onended = ()=>{ btnAudioEl.textContent="🔊 Leer"; statusP.textContent = "Audio finalizado"; };
+          audio.onerror = ()=>{ btnAudioEl.textContent="❌ Error"; statusP.textContent="Error al reproducir audio"; };
+        }catch(err){ btnAudioEl.textContent="❌ Error TTS"; statusP.textContent = "Error con UnrealSpeech: "+err.message; }
         return;
       }
 
       // Navegadores normales → speechSynthesis
-      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+      if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
         const synth = window.speechSynthesis;
-        if (synth.speaking) { synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
-        currentParagraphIndex = 0;
-        speakNext();
+        if(synth.speaking){ synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
+        currentParagraphIndex=0; speakNext();
       }
     });
 
