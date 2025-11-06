@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -151,6 +151,7 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
+    let isAppCreator = /appcreator/i.test(navigator.userAgent); // Detect AppCreator
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -168,7 +169,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[];
+          if(!sections["Información"]) sections["Información"]=[]; 
           sections["Información"].push(p);
         }
       });
@@ -225,7 +226,6 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
-        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -256,16 +256,43 @@
       screenContainer.style.width = "100%";
     });
 
-    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
-      btnAudioEl.addEventListener("click", ()=>{
-        if(!paragraphs.length) return;
-        const synth = window.speechSynthesis;
-        if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-        } else { currentParagraphIndex=0; speakNext(); }
-      });
-    } else btnAudioEl.style.display="none";
+    // Botón Leer adaptado para navegadores y AppCreator
+    btnAudioEl.addEventListener("click", async ()=>{
+      if(!paragraphs.length) return;
+
+      if(isAppCreator){
+        // AppCreator24: Generar audio vía proxy
+        try{
+          const textToRead = paragraphs.join(" ");
+          btnAudioEl.disabled = true;
+          btnAudioEl.textContent = "🎵 Generando audio...";
+          const resp = await fetch("/api/tts", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text:textToRead})});
+          if(!resp.ok) throw new Error("Error generando audio: "+resp.status);
+          const data = await resp.json();
+          if(!data.audioUrl) throw new Error("No se recibió URL de audio.");
+
+          // Reproducir audio en la misma ventana
+          const audio = new Audio(data.audioUrl);
+          audio.play();
+          btnAudioEl.textContent = "🔊 Leer";
+          btnAudioEl.disabled = false;
+
+        } catch(err){
+          console.error(err);
+          btnAudioEl.textContent = "🔊 Leer";
+          btnAudioEl.disabled = false;
+          alert("No se pudo reproducir el audio.");
+        }
+        return;
+      }
+
+      // Navegador normal: usar SpeechSynthesis con resaltado
+      const synth = window.speechSynthesis;
+      if(synth.speaking || paused){
+        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+      } else { currentParagraphIndex=0; speakNext(); }
+    });
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
