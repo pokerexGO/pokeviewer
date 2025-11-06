@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
   try {
-    const targetBase = "https://pokeasistente-ia-generative.vercel.app"; // 👈 tu dominio principal
+    const targetBase = "https://pokeviewer-jade.vercel.app/"; // 👈 tu dominio principal
     const url = `${targetBase}/api/unrealspeech`;
 
     const response = await fetch(url, {
@@ -17,3 +17,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Error al conectar con la API UnrealSpeech" });
   }
 }
+
