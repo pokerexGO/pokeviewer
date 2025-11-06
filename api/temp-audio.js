@@ -4,18 +4,23 @@ import path from "path";
 export default async function handler(req, res) {
   try {
     const { file } = req.query;
-    const filepath = path.join("/tmp", file);
+    if (!file) {
+      return res.status(400).send("Falta el nombre del archivo");
+    }
 
-    if (!fs.existsSync(filepath)) {
+    const filePath = path.join("/tmp", file);
+
+    if (!fs.existsSync(filePath)) {
       return res.status(404).send("Archivo no encontrado");
     }
 
-    const audioBuffer = fs.readFileSync(filepath);
+    const audioBuffer = fs.readFileSync(filePath);
 
     res.setHeader("Content-Type", "audio/mpeg");
-    res.send(audioBuffer);
-  } catch (error) {
-    console.error("Error al servir audio temporal:", error);
-    res.status(500).send("Error interno del servidor");
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(audioBuffer);
+  } catch (err) {
+    console.error("Error al servir archivo temporal:", err);
+    res.status(500).send("Error interno al servir el audio");
   }
 }
