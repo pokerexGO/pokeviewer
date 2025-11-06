@@ -1,18 +1,24 @@
-// /api/audio.js — versión final para tu proyecto del VISOR
-
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
 
-    // 🔑 Tu clave API de UnrealSpeech (asegúrate de tenerla como variable en Vercel)
-    const apiKey = process.env.UNREAL_API_KEY;
+    if (!text) {
+      return res.status(400).json({ error: "Falta el texto" });
+    }
 
-    // 📡 Llamamos directamente a UnrealSpeech desde tu backend
+    // Clave API desde variable de entorno de Vercel
+    const apiKey = process.env.UNREAL_API_KEY;
+    if (!apiKey) {
+      console.error("❌ No se encontró UNREAL_API_KEY en variables de entorno");
+      return res.status(500).json({ error: "Falta la clave API" });
+    }
+
+    // Llamada directa a UnrealSpeech
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         Text: text,
@@ -22,27 +28,26 @@ export default async function handler(req, res) {
         Pitch: "1",
         Codec: "mp3",
         Emotion: "default"
-      }),
+      })
     });
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("❌ Error UnrealSpeech:", err);
+      console.error("Error UnrealSpeech:", err);
       return res.status(500).json({ error: "Error al conectar con UnrealSpeech" });
     }
 
-    // 🕗 Guardamos el audio temporalmente en un buffer
-    const audioBuffer = await response.arrayBuffer();
+    // Convertimos el audio en base64
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(arrayBuffer).toString("base64");
 
-    // 🔄 Convertimos el buffer en Base64 para crear una URL temporal reproducible
-    const base64Audio = Buffer.from(audioBuffer).toString("base64");
+    // Creamos URL temporal en base64 (no requiere archivos)
     const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
 
-    // 📤 Enviamos la URL base64 al cliente
     res.status(200).json({ url: audioUrl });
 
   } catch (error) {
     console.error("Error en proxy UnrealSpeech:", error);
-    res.status(500).json({ error: "Error al generar el audio" });
+    res.status(500).json({ error: "Error al conectar con la API UnrealSpeech" });
   }
 }
