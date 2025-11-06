@@ -13,7 +13,8 @@ export default async function handler(req, res) {
         VoiceId: "Will",
         Bitrate: "192k",
         Speed: "1.0",
-        Codec: "libmp3lame", // 👈 CORRECTO según el error anterior
+        Codec: "libmp3lame",   // 👈 CORRECTO según UnrealSpeech (ya no se usa "mp3")
+        OutputFormat: "mp3"    // 👈 RECOMENDADO: formato final del archivo
       }),
     });
 
@@ -22,12 +23,12 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    // Convertir el audio a Base64 para crear un archivo temporal
+    // Convertir el audio a Base64 (crea una URL temporal reproducible)
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
     const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
 
-    // Enviar al cliente una URL lista para reproducir
+    // Devolver la URL lista para el navegador o AppCreator24
     res.status(200).json({ url: audioUrl });
   } catch (error) {
     console.error("Error en proxy UnrealSpeech:", error);
