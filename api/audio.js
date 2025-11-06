@@ -16,6 +16,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Falta la clave API" });
     }
 
+    console.log("🟢 Enviando texto a UnrealSpeech:", text);
+
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -34,19 +36,26 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      console.error("Error UnrealSpeech:", err);
-      return res.status(500).json({ error: "Error al conectar con UnrealSpeech" });
+      const errText = await response.text();
+      console.error("❌ Error UnrealSpeech (detalle):", errText);
+      return res.status(500).json({
+        error: "Error al conectar con UnrealSpeech",
+        detalle: errText
+      });
     }
 
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = Buffer.from(arrayBuffer).toString("base64");
     const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
 
+    console.log("✅ Audio generado correctamente");
     res.status(200).json({ url: audioUrl });
 
   } catch (error) {
-    console.error("Error en proxy UnrealSpeech:", error);
-    res.status(500).json({ error: "Error al conectar con la API UnrealSpeech" });
+    console.error("❌ Error completo en handler:", error);
+    res.status(500).json({
+      error: "Error interno al conectar con la API UnrealSpeech",
+      detalle: error.message
+    });
   }
 }
