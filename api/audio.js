@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         Bitrate: "192k",
         Speed: "0",
         Pitch: "1",
-        Codec: "mp3",
+        Codec: "libmp3lame", // ✅ CORREGIDO
         Emotion: "default"
       })
     });
