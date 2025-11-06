@@ -1,70 +1,234 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reproductor de voz IA</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PokeViewer</title>
+  <style>
+    :root{
+      --bg: #0d1117;
+      --card-red: #d62828;
+      --screen: #222;
+      --accent: #ffcc00;
+      --muted: #9aa4b2;
+      --text: #e6edf3;
+      --glass: rgba(255,255,255,0.02);
+      --border: #444;
+    }
+
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
+    body{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;}
+
+    .wrapper{ width:100%; max-width:380px; }
+
+    .title-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px; }
+    .bolt {
+      width:32px;height:32px;background:linear-gradient(180deg,#fff8b0,#ffcc00);
+      clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+      opacity:0.9;
+    }
+    .title {
+      font-size:1.7rem; font-weight:800; color:var(--accent); text-shadow:0 0 10px #ffcc0088;
+      letter-spacing:0.6px;
+    }
+    @keyframes boltPulse { 0%{opacity:.18; transform:scale(.92) translateY(0);} 50%{opacity:1; transform:scale(1.06) translateY(-2px);} 100%{opacity:.28; transform:scale(.95) translateY(0);} }
+    .bolt.left{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s; }
+    .bolt.right{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0.6s; }
+
+    .pokedex {
+      background: var(--card-red);
+      border-radius:18px;
+      padding:18px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      border: 2px solid rgba(0,0,0,0.35);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+
+    .screen-container {
+      background: var(--screen);
+      border-radius:10px;
+      border:3px solid var(--border);
+      padding:14px;
+      min-height:280px;
+      max-height:50vh;
+      width:100%;
+      overflow:auto;
+      box-sizing:border-box;
+      transition: width 0.3s, max-height 0.3s;
+    }
+
+    .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
+    @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
+
+    #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
+    .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
+
+    .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
+    .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
+    .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
+
+    #btnAudio {
+      margin:6px 0;
+      width:100%;
+      padding:14px;
+      border-radius:10px;
+      background:#222;
+      border:2px solid transparent;
+      color:#fff;
+      cursor:pointer;
+      font-weight:700;
+      font-size:1.05rem;
+      display:none;
+    }
+
+    .rayo { position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6; animation:caer 1.1s linear infinite; }
+    .rayo.r1 { left:14%; animation-delay:0s; }
+    .rayo.r2 { left:50%; animation-delay:0.35s; }
+    .rayo.r3 { left:86%; animation-delay:0.65s; }
+    @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
+
+    @media (max-width:420px) {
+      .wrapper{ max-width:320px; }
+      .pokemon-img{ width:140px; height:140px; }
+      .screen-container { min-height:240px; max-height:55vh; width:100%; }
+      input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
+    }
+  </style>
 </head>
-<body style="font-family: sans-serif; text-align: center; padding: 40px;">
+<body>
+  <div class="wrapper">
+    <div class="title-row">
+      <div class="bolt left"></div>
+      <div class="title">PokeViewer</div>
+      <div class="bolt right"></div>
+    </div>
 
-  <h1>🎙️ Generador de voz con UnrealSpeech</h1>
-  <p>Escribe un texto para generar audio y reproducirlo.</p>
+    <div class="pokedex">
+      <div class="screen-container" id="screenContainer">
+        <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
+      </div>
 
-  <textarea id="texto" rows="4" cols="50" placeholder="Escribe algo..."></textarea><br><br>
-  <button id="generarBtn">🔊 Generar Voz</button>
+      <button id="btnAudio">🔊 Leer</button>
+      <audio id="audioPlayer" controls style="display:none; width:100%; margin-top:10px;"></audio>
 
-  <h3 id="estado"></h3>
+      <div class="controls">
+        <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
+        <button id="buscarBtn" class="btnBuscar">Buscar</button>
+        <button id="clearBtn" class="btnClear">Limpiar</button>
+      </div>
+    </div>
+  </div>
 
-  <audio id="audioPlayer" controls style="margin-top: 20px; display: none;"></audio>
+  <div class="rayo r1"></div>
+  <div class="rayo r2"></div>
+  <div class="rayo r3"></div>
 
   <script>
-    document.getElementById("generarBtn").addEventListener("click", async () => {
-      const texto = document.getElementById("texto").value.trim();
-      const estado = document.getElementById("estado");
-      const audioPlayer = document.getElementById("audioPlayer");
+  (function(){
+    const input = document.getElementById('pokemonInput');
+    const buscarBtn = document.getElementById('buscarBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const screen = document.getElementById('screen');
+    const btnAudioEl = document.getElementById('btnAudio');
+    const audioPlayer = document.getElementById('audioPlayer');
+    let lastText = "";
 
-      if (!texto) {
-        alert("Por favor escribe un texto antes de generar el audio.");
-        return;
-      }
+    function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
-      estado.textContent = "⏳ Generando voz...";
+    function organize(text){
+      const parts = text.split(/\n+/).filter(l=>l.trim());
+      const html = parts.map(p=>`<p>${esc(p)}</p>`).join("");
+      return {html, full:text};
+    }
 
-      try {
-        // Petición al endpoint local del proyecto (usa tu dominio)
-        const response = await fetch("/api/audio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            Text: texto,
-            VoiceId: "Scarlett", // Cambia la voz si quieres
-            Codec: "libmp3lame", // ✅ codec correcto
-            Format: "mp3",
-            Speed: "1.0",
-            Pitch: "1.0"
-          })
+    function showLoading(name){
+      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
+      btnAudioEl.style.display="none";
+      audioPlayer.style.display="none";
+    }
+
+    function showError(msg){
+      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
+      btnAudioEl.style.display="none";
+      audioPlayer.style.display="none";
+    }
+
+    async function buscarPokemon(nombre){
+      if(!nombre) return;
+      showLoading(nombre);
+      try{
+        const resp = await fetch("/api/proxy", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({pokemon:nombre})
         });
 
-        if (!response.ok) {
-          throw new Error("Error en la generación de audio");
-        }
+        if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
+        const data = await resp.json();
+        if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
 
-        const data = await response.json();
+        const sprite = data.sprite||"";
+        const organized = organize(data.respuesta);
+        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" class="pokemon-img" alt="${esc(nombre)}">`:"")+
+                           `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+
+                           `<div id="resultado">${organized.html}</div>`;
 
-        if (data.audioUrl) {
-          estado.textContent = "✅ Audio generado correctamente.";
+        lastText = organized.full;
+        btnAudioEl.style.display="block";
+        audioPlayer.style.display="none";
+      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
+    }
+
+    buscarBtn.addEventListener("click", ()=>{
+      const nombre=(input.value||"").trim().toLowerCase();
+      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
+      buscarPokemon(nombre);
+    });
+
+    input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
+
+    clearBtn.addEventListener("click", ()=>{
+      input.value="";
+      screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
+      btnAudioEl.style.display="none";
+      audioPlayer.style.display="none";
+    });
+
+    btnAudioEl.addEventListener("click", async ()=>{
+      if(!lastText){ alert("No hay texto para leer."); return; }
+      btnAudioEl.textContent = "⏳ Generando voz...";
+      try{
+        const resp = await fetch("/api/audio", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            Text: lastText,
+            VoiceId: "Scarlett",
+            Codec: "libmp3lame",
+            Format: "mp3"
+          })
+        });
+        const data = await resp.json();
+        if(data.audioUrl){
           audioPlayer.src = data.audioUrl;
           audioPlayer.style.display = "block";
           audioPlayer.play();
+          btnAudioEl.textContent = "🔊 Reproducir otra vez";
         } else {
-          estado.textContent = "❌ No se recibió la URL del audio.";
+          alert("Error al generar el audio.");
+          btnAudioEl.textContent = "🔊 Leer";
         }
-      } catch (error) {
-        console.error(error);
-        estado.textContent = "⚠️ Error al generar o reproducir el audio.";
+      } catch(e){
+        console.error(e);
+        alert("Error al conectar con el servidor de audio.");
+        btnAudioEl.textContent = "🔊 Leer";
       }
     });
+  })();
   </script>
-
 </body>
 </html>
