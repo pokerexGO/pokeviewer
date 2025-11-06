@@ -155,7 +155,6 @@
     const isAppCreator = /appcreator24/i.test(navigator.userAgent);
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -170,7 +169,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[];
+          if(!sections["Información"]) sections["Información"]=[]; 
           sections["Información"].push(p);
         }
       });
@@ -213,37 +212,53 @@
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
     clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; });
 
-    // 🔊 Función de lectura dual: speechSynthesis o UnrealSpeech (según entorno)
-    btnAudioEl.addEventListener("click", async ()=>{
-      if(!paragraphs.length) return;
+    // 🔊 Función de lectura dual con logs para AppCreator24
+    btnAudioEl.addEventListener("click", async () => {
+      if (!paragraphs.length) return;
 
-      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (proxy/audio.js)
-      if(isAppCreator){
-        try{
+      // Crear elemento de estado si no existe
+      const statusElId = "audioStatus";
+      let statusEl = document.getElementById(statusElId);
+      if (!statusEl) {
+        statusEl = document.createElement("p");
+        statusEl.id = statusElId;
+        statusEl.style.color = "#ffcc00";
+        statusEl.style.textAlign = "center";
+        statusEl.style.marginTop = "6px";
+        screenContainer.appendChild(statusEl);
+      }
+      statusEl.textContent = "";
+
+      if (isAppCreator) {
+        try {
           const fullText = paragraphs.join(" ");
-          btnAudioEl.textContent="🔊 Generando audio...";
-          const resp = await fetch("/api/audio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:fullText})});
+          statusEl.textContent = "🔊 Generando audio...";
+          const resp = await fetch("/api/audio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: fullText }),
+          });
           const data = await resp.json();
-          if(data.url){
+          if (data.url) {
+            statusEl.textContent = "🔊 Reproduciendo audio...";
             const audio = new Audio(data.url);
-            btnAudioEl.textContent="🔊 Reproduciendo...";
-            audio.play();
-            audio.onended=()=>{btnAudioEl.textContent="🔊 Leer";};
-          }else{
-            btnAudioEl.textContent="❌ Error al generar el audio";
+            audio.play().catch(() => { statusEl.textContent = "❌ Error al reproducir audio"; });
+            audio.onended = () => { statusEl.textContent = "🔊 Leer"; };
+          } else {
+            statusEl.textContent = "❌ Error: no se recibió URL de audio";
           }
-        }catch(err){
-          console.error(err);
-          btnAudioEl.textContent="❌ Error al conectar con el TTS";
+        } catch {
+          statusEl.textContent = "❌ Error al conectar con TTS";
         }
         return;
       }
 
-      // 💻 En navegadores normales → usar speechSynthesis con resaltado
-      if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
+      // Navegadores normales → speechSynthesis
+      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
         const synth = window.speechSynthesis;
-        if(synth.speaking){ synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
-        currentParagraphIndex=0; speakNext();
+        if (synth.speaking) { synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
+        currentParagraphIndex = 0;
+        speakNext();
       }
     });
 
