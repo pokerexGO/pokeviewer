@@ -1,25 +1,22 @@
-export default async function handler(req, res) {
-  console.log("🎧 [API] /api/audio.js ejecutado (modo base64)");
+import fs from "fs";
+import path from "path";
 
+export default async function handler(req, res) {
   try {
     const { text } = req.body;
-    console.log("📝 Texto recibido:", text?.slice(0, 80) || "(vacío)");
+
+    console.log("📥 Texto recibido para TTS:", text);
 
     if (!text || text.trim() === "") {
       return res.status(400).json({ error: "No se proporcionó texto para el TTS." });
     }
 
-    const apiKey = process.env.UNREAL_API_KEY;
-    if (!apiKey) {
-      console.error("🚫 Falta UNREAL_API_KEY en Vercel.");
-      return res.status(500).json({ error: "Falta la variable UNREAL_API_KEY en Vercel." });
-    }
+    console.log("🔊 Solicitando audio a UnrealSpeech...");
 
-    console.log("🌐 Solicitando audio a UnrealSpeech...");
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${process.env.UNREAL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -31,25 +28,29 @@ export default async function handler(req, res) {
       }),
     });
 
-    console.log("📡 Estado UnrealSpeech:", response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("💥 Error UnrealSpeech:", errorText);
-      throw new Error(errorText);
+      console.error("❌ Error en respuesta de UnrealSpeech:", errorText);
+      throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-    const dataUrl = `data:audio/mp3;base64,${base64Audio}`;
+    console.log("✅ Audio recibido desde UnrealSpeech, convirtiendo...");
 
-    console.log("✅ Audio generado correctamente (base64)");
-    res.status(200).json({ url: dataUrl });
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Audio = buffer.toString("base64");
+
+    console.log("🎧 Audio convertido a Base64, enviando al cliente...");
+
+    res.status(200).json({
+      success: true,
+      audioUrl: `data:audio/mp3;base64,${base64Audio}`,
+    });
   } catch (error) {
-    console.error("💥 Error general en audio.js:", error);
+    console.error("💥 Error general en proxy UnrealSpeech:", error);
     res.status(500).json({
       error: "Error al generar el audio.",
-      details: error.message || "Sin detalles disponibles",
+      details: error.message,
     });
   }
 }
