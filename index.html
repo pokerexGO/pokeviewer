@@ -151,7 +151,7 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false, highlightInterval=null;
 
-    // 🔍 Detectar si está dentro de AppCreator24
+    // Detectar si está dentro de AppCreator24
     const isAppCreator = /appcreator24/i.test(navigator.userAgent);
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
@@ -206,6 +206,7 @@
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         btnAudioEl.style.display="block";
+
       }catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
@@ -213,11 +214,9 @@
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
     clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; });
 
-    // 🔊 Función de lectura dual: speechSynthesis o UnrealSpeech (según entorno)
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (proxy/audio.js)
       if(isAppCreator){
         try{
           const fullText = paragraphs.join(" ");
@@ -239,7 +238,7 @@
         return;
       }
 
-      // 💻 En navegadores normales → usar speechSynthesis con resaltado
+      // Navegadores normales → speechSynthesis
       if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
         const synth = window.speechSynthesis;
         if(synth.speaking){ synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
