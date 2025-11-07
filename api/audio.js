@@ -1,5 +1,6 @@
-import fs from "fs";
-import path from "path";
+export const config = {
+  runtime: "nodejs", // 🚀 Asegura que se ejecute en Node, no en Edge (Vercel)
+};
 
 export default async function handler(req, res) {
   try {
@@ -34,17 +35,27 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    console.log("✅ Audio recibido desde UnrealSpeech, convirtiendo...");
+    console.log("✅ Audio recibido desde UnrealSpeech, leyendo stream completo...");
 
+    // 🔄 Convertir el stream en un ArrayBuffer completo (sin truncar)
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    console.log("📦 Tamaño del buffer recibido:", buffer.length, "bytes");
+
+    // 🧠 Validar si el buffer parece vacío
+    if (buffer.length < 2000) {
+      console.warn("⚠️ Advertencia: el audio recibido es demasiado corto (posiblemente vacío)");
+    }
+
+    // 🎧 Convertir a Base64 correctamente
     const base64Audio = buffer.toString("base64");
 
-    console.log("🎧 Audio convertido a Base64, enviando al cliente...");
+    console.log("🎵 Audio convertido a Base64 correctamente (longitud):", base64Audio.length);
 
+    // Enviar la URL base64 al cliente
     res.status(200).json({
       success: true,
-      audioUrl: `data:audio/mp3;base64,${base64Audio}`,
+      audioUrl: `data:audio/mpeg;base64,${base64Audio}`,
     });
   } catch (error) {
     console.error("💥 Error general en proxy UnrealSpeech:", error);
