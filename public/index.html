@@ -37,6 +37,19 @@
     button:hover {
       background-color: #ff8533;
     }
+    #debug {
+      background: rgba(255, 255, 255, 0.1);
+      color: #00ff99;
+      font-size: 12px;
+      text-align: left;
+      padding: 10px;
+      margin: 10px auto;
+      border-radius: 8px;
+      max-width: 400px;
+      height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -49,18 +62,27 @@
 
   <button id="leer-btn">🔊 Leer</button>
 
+  <div id="debug">🧩 Zona de depuración activa...</div>
+
   <script>
     const leerBtn = document.getElementById("leer-btn");
     const descripcion = document.getElementById("pokemon-description");
+    const debugBox = document.getElementById("debug");
+
+    function logPantalla(msg) {
+      debugBox.textContent += "\n" + msg;
+      debugBox.scrollTop = debugBox.scrollHeight;
+      console.log(msg);
+    }
 
     function detectarEntorno() {
       const isAppCreator = !("speechSynthesis" in window);
-      console.log("🔍 Detección de entorno:", isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal");
+      logPantalla("🔍 Detección de entorno: " + (isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal"));
       return isAppCreator;
     }
 
     async function reproducirTTS_AppCreator(texto) {
-      console.log("🌀 Generando audio desde backend (AppCreator24)...");
+      logPantalla("🌀 Enviando texto al backend para generar audio...");
 
       try {
         const response = await fetch("/api/audio", {
@@ -71,46 +93,43 @@
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("❌ Error en respuesta del servidor:", errorText);
+          logPantalla("❌ Error del servidor: " + errorText);
           return;
         }
 
         const data = await response.json();
-        console.log("✅ URL de audio recibida:", data.url);
+        logPantalla("✅ URL pública recibida: " + data.url);
 
         if (data.url) {
           const audio = new Audio(data.url);
-          console.log("🎧 Intentando reproducir audio público...");
+          logPantalla("🎧 Intentando reproducir: " + data.url);
           await audio.play();
-          console.log("🔊 Audio en reproducción correctamente (AppCreator24)");
+          logPantalla("🔊 Reproducción iniciada correctamente (AppCreator24)");
         } else {
-          console.error("⚠️ No se recibió una URL válida del servidor.");
+          logPantalla("⚠️ No se recibió una URL válida del servidor.");
         }
       } catch (error) {
-        console.error("💥 Error general al generar/reproducir audio:", error);
+        logPantalla("💥 Error general: " + error.message);
       }
     }
 
     function reproducirTTS_Navegador(texto) {
-      console.log("🗣️ Usando speechSynthesis del navegador...");
+      logPantalla("🗣️ Usando speechSynthesis del navegador...");
       const utterance = new SpeechSynthesisUtterance(texto);
-
       const palabras = texto.split(" ");
       let indice = 0;
 
       utterance.onboundary = (event) => {
         if (event.name === "word") {
           indice++;
-          const html = palabras
-            .map((p, i) => (i === indice ? `<span class='highlight'>${p}</span>` : p))
-            .join(" ");
+          const html = palabras.map((p, i) => (i === indice ? `<span class='highlight'>${p}</span>` : p)).join(" ");
           descripcion.innerHTML = html;
         }
       };
 
       utterance.onend = () => {
-        console.log("✅ Lectura completada con speechSynthesis");
-        descripcion.innerHTML = texto; // restaurar texto
+        logPantalla("✅ Lectura completada con speechSynthesis");
+        descripcion.innerHTML = texto;
       };
 
       speechSynthesis.speak(utterance);
@@ -118,18 +137,20 @@
 
     leerBtn.addEventListener("click", async () => {
       const texto = descripcion.textContent.trim();
-      console.log("🎯 Botón Leer presionado. Texto:", texto);
+      logPantalla("🎯 Botón Leer presionado. Texto: " + texto);
 
       const isAppCreator = detectarEntorno();
 
       if (isAppCreator) {
-        console.log("📱 Modo AppCreator24 detectado: usando backend con UnrealSpeech");
+        logPantalla("📱 Modo AppCreator24 detectado: usando backend con UnrealSpeech");
         await reproducirTTS_AppCreator(texto);
       } else {
-        console.log("💻 Modo navegador normal detectado: usando speechSynthesis");
+        logPantalla("💻 Modo navegador normal detectado: usando speechSynthesis");
         reproducirTTS_Navegador(texto);
       }
     });
+
+    logPantalla("✅ Script cargado correctamente");
   </script>
 
 </body>
