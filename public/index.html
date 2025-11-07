@@ -1,157 +1,162 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PokeViewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokeViewer - Asistente Pokémon</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #1e1e1e;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(120deg, #1d2671, #c33764);
       color: white;
       text-align: center;
       margin: 0;
       padding: 0;
     }
+
+    h1 {
+      font-size: 2.3em;
+      margin-top: 40px;
+    }
+
     #pokemon-info {
-      background-color: #2e2e2e;
-      margin: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
       padding: 20px;
-      border-radius: 10px;
-      display: inline-block;
+      margin: 20px auto;
+      width: 90%;
       max-width: 400px;
     }
-    .highlight {
-      background-color: rgba(255, 165, 0, 0.4);
-    }
+
     button {
-      background-color: #ff6600;
-      color: white;
+      background-color: #ffcb05;
+      color: #2a75bb;
       border: none;
       border-radius: 8px;
-      padding: 10px 20px;
-      margin: 5px;
-      cursor: pointer;
+      padding: 12px 20px;
       font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 10px;
     }
+
     button:hover {
-      background-color: #ff8533;
+      background-color: #ffd633;
     }
-    #debug {
-      background: rgba(255, 255, 255, 0.1);
-      color: #00ff99;
-      font-size: 12px;
+
+    #logs {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px auto;
+      width: 90%;
+      max-width: 500px;
       text-align: left;
-      padding: 10px;
-      margin: 10px auto;
-      border-radius: 8px;
-      max-width: 400px;
-      height: 150px;
-      overflow-y: auto;
+      font-size: 14px;
       white-space: pre-wrap;
+      color: #ffeb3b;
     }
   </style>
 </head>
 <body>
+  <h1>🔊 PokeViewer - Asistente Pokémon</h1>
 
-  <h1>PokeViewer</h1>
   <div id="pokemon-info">
-    <h2 id="pokemon-name">Pikachu</h2>
-    <p id="pokemon-description">Este es un Pokémon de tipo eléctrico conocido por sus mejillas que almacenan electricidad.</p>
+    <p id="pokemon-text">
+      Este es un Pokémon de tipo eléctrico conocido por sus mejillas que almacenan electricidad.
+    </p>
   </div>
 
-  <button id="leer-btn">🔊 Leer</button>
+  <button id="leer">🔈 Leer en voz alta</button>
+  <button id="detener">⛔ Detener</button>
 
-  <div id="debug">🧩 Zona de depuración activa...</div>
+  <div id="logs">Zona de depuración activa...</div>
 
   <script>
-    const leerBtn = document.getElementById("leer-btn");
-    const descripcion = document.getElementById("pokemon-description");
-    const debugBox = document.getElementById("debug");
+    const botonLeer = document.getElementById("leer");
+    const botonDetener = document.getElementById("detener");
+    const logs = document.getElementById("logs");
+    const textoLeido = document.getElementById("pokemon-text").innerText;
 
-    function logPantalla(msg) {
-      debugBox.textContent += "\n" + msg;
-      debugBox.scrollTop = debugBox.scrollHeight;
+    const log = (msg) => {
       console.log(msg);
-    }
+      logs.textContent += "\n" + msg;
+    };
 
-    function detectarEntorno() {
-      const isAppCreator = !("speechSynthesis" in window);
-      logPantalla("🔍 Detección de entorno: " + (isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal"));
-      return isAppCreator;
-    }
+    let audioActual = null;
 
-    async function reproducirTTS_AppCreator(texto) {
-      logPantalla("🌀 Enviando texto al backend para generar audio...");
+    log("✅ Script cargado correctamente");
+
+    botonLeer.addEventListener("click", async () => {
+      log("🎯 Botón Leer presionado. Texto: " + textoLeido);
+
+      // Detectar si speechSynthesis está disponible (modo navegador)
+      const tieneSpeech = "speechSynthesis" in window;
+
+      if (tieneSpeech) {
+        log("🌐 Detección de entorno: Navegador normal (speechSynthesis activo)");
+        const utter = new SpeechSynthesisUtterance(textoLeido);
+        utter.lang = "es-ES";
+        utter.rate = 1.0;
+        window.speechSynthesis.speak(utter);
+        return;
+      }
+
+      // Caso: AppCreator24 o entorno sin speechSynthesis
+      log("🔍 Detección de entorno: AppCreator24 (sin speechSynthesis)");
+      log("📱 Modo AppCreator24 detectado: usando backend con UnrealSpeech");
 
       try {
+        log("🌀 Enviando texto al backend para generar audio...");
+
         const response = await fetch("/api/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: texto })
+          body: JSON.stringify({ text: textoLeido }),
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-          const errorText = await response.text();
-          logPantalla("❌ Error del servidor: " + errorText);
+          log("💥 Error del servidor: " + JSON.stringify(data));
           return;
         }
 
-        const data = await response.json();
-        logPantalla("✅ URL pública recibida: " + data.url);
+        const audioUrl = data.audioUrl;
+        log("✅ URL base64 recibida: " + audioUrl.substring(0, 50) + "...");
 
-        if (data.url) {
-          const audio = new Audio(data.url);
-          logPantalla("🎧 Intentando reproducir: " + data.url);
-          await audio.play();
-          logPantalla("🔊 Reproducción iniciada correctamente (AppCreator24)");
-        } else {
-          logPantalla("⚠️ No se recibió una URL válida del servidor.");
+        if (audioActual) {
+          audioActual.pause();
+          audioActual = null;
         }
-      } catch (error) {
-        logPantalla("💥 Error general: " + error.message);
-      }
-    }
 
-    function reproducirTTS_Navegador(texto) {
-      logPantalla("🗣️ Usando speechSynthesis del navegador...");
-      const utterance = new SpeechSynthesisUtterance(texto);
-      const palabras = texto.split(" ");
-      let indice = 0;
+        audioActual = new Audio();
+        audioActual.src = audioUrl;
 
-      utterance.onboundary = (event) => {
-        if (event.name === "word") {
-          indice++;
-          const html = palabras.map((p, i) => (i === indice ? `<span class='highlight'>${p}</span>` : p)).join(" ");
-          descripcion.innerHTML = html;
-        }
-      };
+        audioActual.onloadeddata = () => {
+          log("🎵 Audio cargado correctamente, reproduciendo...");
+          audioActual.play().catch(err => log("❌ Error al reproducir: " + err));
+        };
 
-      utterance.onend = () => {
-        logPantalla("✅ Lectura completada con speechSynthesis");
-        descripcion.innerHTML = texto;
-      };
+        audioActual.onerror = () => {
+          log("💥 Error: el archivo de audio no se pudo cargar o está corrupto.");
+        };
 
-      speechSynthesis.speak(utterance);
-    }
-
-    leerBtn.addEventListener("click", async () => {
-      const texto = descripcion.textContent.trim();
-      logPantalla("🎯 Botón Leer presionado. Texto: " + texto);
-
-      const isAppCreator = detectarEntorno();
-
-      if (isAppCreator) {
-        logPantalla("📱 Modo AppCreator24 detectado: usando backend con UnrealSpeech");
-        await reproducirTTS_AppCreator(texto);
-      } else {
-        logPantalla("💻 Modo navegador normal detectado: usando speechSynthesis");
-        reproducirTTS_Navegador(texto);
+      } catch (err) {
+        log("💥 Error general: " + err);
       }
     });
 
-    logPantalla("✅ Script cargado correctamente");
+    botonDetener.addEventListener("click", () => {
+      if (audioActual) {
+        log("⏹️ Reproducción detenida manualmente");
+        audioActual.pause();
+        audioActual = null;
+      }
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    });
   </script>
-
 </body>
 </html>
