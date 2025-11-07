@@ -170,7 +170,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[];
+          if(!sections["Información"]) sections["Información"]=[]; 
           sections["Información"].push(p);
         }
       });
@@ -217,7 +217,7 @@
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (proxy/audio.js)
+      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (archivo MP3 real)
       if(isAppCreator){
         try{
           const fullText = paragraphs.join(" ");
