@@ -4,7 +4,11 @@ import path from "path";
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
+    if (!text || text.trim() === "") {
+      return res.status(400).json({ error: "No se proporcionó texto para el TTS." });
+    }
 
+    // Llamada a UnrealSpeech
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -16,7 +20,7 @@ export default async function handler(req, res) {
         VoiceId: "Will",
         Bitrate: "192k",
         Speed: "1.0",
-        Codec: "libmp3lame", // ✅ formato correcto
+        Codec: "libmp3lame", // Formato correcto MP3
       }),
     });
 
@@ -25,18 +29,23 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    // Guardar el audio temporalmente en /tmp (carpeta temporal de Vercel)
+    // Convertir a buffer
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const filename = `voz-${Date.now()}.mp3`;
-    const filepath = path.join("/tmp", filename);
 
+    // Crear carpeta public/temp si no existe
+    const tempDir = path.join(process.cwd(), "public", "temp");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    // Guardar archivo MP3 temporal
+    const filename = `voz-${Date.now()}.mp3`;
+    const filepath = path.join(tempDir, filename);
     fs.writeFileSync(filepath, buffer);
 
-    // Construir una URL pública temporal
-    const publicUrl = `https://${req.headers.host}/api/temp-audio?file=${filename}`;
+    // URL pública real
+    const publicUrl = `https://${req.headers.host}/temp/${filename}`;
 
-    // Devolver la URL
+    // Enviar URL al cliente
     res.status(200).json({ url: publicUrl });
 
   } catch (error) {
