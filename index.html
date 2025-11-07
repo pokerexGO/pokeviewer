@@ -217,7 +217,7 @@
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (archivo MP3 real)
+      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (proxy/audio.js)
       if(isAppCreator){
         try{
           const fullText = paragraphs.join(" ");
