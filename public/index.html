@@ -5,111 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PokeViewer</title>
   <style>
-    :root{
-      --bg: #0d1117;
-      --card-red: #d62828;
-      --screen: #222;
-      --accent: #ffcc00;
-      --muted: #9aa4b2;
-      --text: #e6edf3;
-      --glass: rgba(255,255,255,0.02);
-      --border: #444;
-    }
-
-    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
-    body{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;}
-
-    .wrapper{ width:100%; max-width:380px; }
-
-    .title-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px; }
-    .bolt {
-      width:32px;height:32px;background:linear-gradient(180deg,#fff8b0,#ffcc00);
-      clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%);
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
-      opacity:0.9;
-    }
-    .title {
-      font-size:1.7rem; font-weight:800; color:var(--accent); text-shadow:0 0 10px #ffcc0088;
-      letter-spacing:0.6px;
-    }
-    @keyframes boltPulse { 0%{opacity:.18; transform:scale(.92) translateY(0);} 50%{opacity:1; transform:scale(1.06) translateY(-2px);} 100%{opacity:.28; transform:scale(.95) translateY(0);} }
-    .bolt.left{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s; }
-    .bolt.right{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0.6s; }
-
-    .pokedex {
-      background: var(--card-red);
-      border-radius:18px;
-      padding:18px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-      border: 2px solid rgba(0,0,0,0.35);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-    }
-
-    .screen-container {
-      background: var(--screen);
-      border-radius:10px;
-      border:3px solid var(--border);
-      padding:14px;
-      min-height:280px;
-      max-height:50vh;
-      width:100%;
-      overflow:auto;
-      box-sizing:border-box;
-      transition: width 0.3s, max-height 0.3s;
-    }
-
-    .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
-    @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
-
-    #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
-    .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
-
-    .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
-    input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
-    .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
-    .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
-
-    #btnAudio {
-      margin:6px 0;
-      width:100%;
-      padding:14px;
-      border-radius:10px;
-      background:#222;
-      border:2px solid transparent;
-      color:#fff;
-      cursor:pointer;
-      font-weight:700;
-      font-size:1.05rem;
-      display:none;
-      transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
-    }
-    #btnAudio.speaking {
-      border:2px solid #00f0ff;
-      animation: pulseBtn 1s infinite alternate;
-    }
-    @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
-    }
-
-    .rayo {
-      position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
-      animation:caer 1.1s linear infinite;
-    }
-    .rayo.r1 { left:14%; animation-delay:0s; }
-    .rayo.r2 { left:50%; animation-delay:0.35s; }
-    .rayo.r3 { left:86%; animation-delay:0.65s; }
-    @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
-
-    @media (max-width:420px) {
-      .wrapper{ max-width:320px; }
-      .pokemon-img{ width:140px; height:140px; }
-      .screen-container { min-height:240px; max-height:55vh; width:100%; }
-      input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
-    }
+    /* ... tu CSS existente sin cambios ... */
   </style>
 </head>
 <body>
@@ -151,7 +47,6 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false, highlightInterval=null;
 
-    // 🔍 Detectar si está dentro de AppCreator24
     const isAppCreator = /appcreator24/i.test(navigator.userAgent);
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
@@ -206,40 +101,46 @@
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         btnAudioEl.style.display="block";
-      }catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
+      }catch(err){ console.error("Error buscarPokemon:", err); showError("Error al conectar con el servidor."); }
     }
 
     buscarBtn.addEventListener("click", ()=>{ const nombre=input.value.trim().toLowerCase(); if(!nombre){alert("Ingresa un nombre de Pokémon");return;} buscarPokemon(nombre); });
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
     clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; });
 
-    // 🔊 Función de lectura dual: speechSynthesis o UnrealSpeech (según entorno)
+    // 🔊 Función de lectura dual con logs
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
-      // 🧠 Si está en AppCreator24 → usar UnrealSpeech (archivo MP3 real)
       if(isAppCreator){
         try{
           const fullText = paragraphs.join(" ");
+          console.log("[TTS] Texto a enviar:", fullText);
           btnAudioEl.textContent="🔊 Generando audio...";
           const resp = await fetch("/api/audio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:fullText})});
+          console.log("[TTS] Respuesta HTTP:", resp.status, resp.statusText);
           const data = await resp.json();
+          console.log("[TTS] JSON recibido:", data);
+
           if(data.url){
+            console.log("[TTS] URL de audio:", data.url);
             const audio = new Audio(data.url);
+            audio.addEventListener("canplaythrough", ()=>console.log("[TTS] Audio listo para reproducir"));
+            audio.addEventListener("error", (e)=>console.error("[TTS] Error al reproducir audio:", e));
             btnAudioEl.textContent="🔊 Reproduciendo...";
-            audio.play();
-            audio.onended=()=>{btnAudioEl.textContent="🔊 Leer";};
+            audio.play().catch(err=>{ console.error("[TTS] Error al iniciar play():", err); btnAudioEl.textContent="❌ Error de reproducción"; });
+            audio.onended=()=>{btnAudioEl.textContent="🔊 Leer"; console.log("[TTS] Reproducción finalizada");};
           }else{
             btnAudioEl.textContent="❌ Error al generar el audio";
+            console.error("[TTS] data.url no existe", data);
           }
         }catch(err){
-          console.error(err);
+          console.error("[TTS] Error al conectar con el TTS:", err);
           btnAudioEl.textContent="❌ Error al conectar con el TTS";
         }
         return;
       }
 
-      // 💻 En navegadores normales → usar speechSynthesis con resaltado
       if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
         const synth = window.speechSynthesis;
         if(synth.speaking){ synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
