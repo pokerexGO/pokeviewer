@@ -1,19 +1,14 @@
-export const config = {
-  runtime: "nodejs", // 🚀 Ejecutar en entorno Node.js (no Edge)
-};
+import fs from "fs";
+import path from "path";
 
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
-
-    console.log("📥 Texto recibido para TTS:", text);
-
     if (!text || text.trim() === "") {
       return res.status(400).json({ error: "No se proporcionó texto para el TTS." });
     }
 
-    console.log("🔊 Solicitando audio a UnrealSpeech...");
-
+    // 🔹 Llamada a UnrealSpeech API
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -31,35 +26,37 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ Error en respuesta de UnrealSpeech:", errorText);
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    console.log("✅ Audio recibido desde UnrealSpeech, leyendo stream completo...");
-
-    // 🔄 Leer el stream completamente y convertir a Buffer
+    // 🔹 Convertir a buffer binario
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    console.log("📦 Tamaño del buffer recibido:", buffer.length, "bytes");
+    // 🔹 Crear carpeta temporal dentro de /public/temp
+    const tempDir = path.join(process.cwd(), "public", "temp");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    if (buffer.length < 2000) {
-      console.warn("⚠️ Advertencia: el audio recibido es demasiado corto (posiblemente vacío)");
-    }
+    // 🔹 Guardar el archivo MP3
+    const filename = `voz-${Date.now()}.mp3`;
+    const filepath = path.join(tempDir, filename);
+    fs.writeFileSync(filepath, buffer);
 
-    // 🎧 Convertir el buffer completo a Base64
-    const base64Audio = buffer.toString("base64");
+    // 🔹 Generar URL pública (desde el dominio del proyecto)
+    const publicUrl = `https://${req.headers.host}/temp/${filename}`;
 
-    console.log("🎵 Audio convertido a Base64 correctamente (longitud):", base64Audio.length);
+    console.log("✅ Audio generado correctamente:", publicUrl);
 
-    // ✅ Enviar respuesta al frontend
+    // 🔹 Devolver respuesta clara
     res.status(200).json({
       success: true,
-      audioUrl: `data:audio/mpeg;base64,${base64Audio}`,
+      audioUrl: publicUrl,
     });
+
   } catch (error) {
-    console.error("💥 Error general en proxy UnrealSpeech:", error);
+    console.error("💥 Error en proxy UnrealSpeech:", error);
     res.status(500).json({
+      success: false,
       error: "Error al generar el audio.",
       details: error.message,
     });
