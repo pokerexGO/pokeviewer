@@ -1,26 +1,35 @@
 import fs from "fs";
 import path from "path";
 
-export default async function handler(req, res) {
+export default function handler(req, res) {
   try {
     const { file } = req.query;
+
     if (!file) {
-      return res.status(400).send("Falta el nombre del archivo");
+      res.status(400).send("No se especificó el archivo.");
+      return;
     }
 
-    const filePath = path.join("/tmp", file);
+    const filepath = path.join("/tmp", file);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send("Archivo no encontrado");
+    if (!fs.existsSync(filepath)) {
+      res.status(404).send("Archivo no encontrado.");
+      return;
     }
 
-    const audioBuffer = fs.readFileSync(filePath);
-
+    // Establecer cabeceras para que se pueda reproducir en AppCreator24
     res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    res.status(200).send(audioBuffer);
+    res.setHeader("Content-Disposition", `inline; filename="${file}"`);
+
+    const stream = fs.createReadStream(filepath);
+    stream.pipe(res);
+
+    stream.on("error", (err) => {
+      console.error("Error al leer el archivo MP3:", err);
+      res.status(500).send("Error al leer el archivo MP3.");
+    });
   } catch (err) {
-    console.error("Error al servir archivo temporal:", err);
-    res.status(500).send("Error interno al servir el audio");
+    console.error("Error en temp-audio.js:", err);
+    res.status(500).send("Error interno del servidor.");
   }
 }
