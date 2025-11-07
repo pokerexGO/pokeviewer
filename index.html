@@ -151,7 +151,7 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false, highlightInterval=null;
 
-    // Detectar si está dentro de AppCreator24
+    // 🔍 Detectar si está dentro de AppCreator24
     const isAppCreator = /appcreator24/i.test(navigator.userAgent);
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
@@ -170,7 +170,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[]; 
+          if(!sections["Información"]) sections["Información"]=[];
           sections["Información"].push(p);
         }
       });
@@ -206,7 +206,6 @@
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         btnAudioEl.style.display="block";
-
       }catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
@@ -214,9 +213,11 @@
     input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
     clearBtn.addEventListener("click", ()=>{ input.value=""; screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`; btnAudioEl.style.display="none"; });
 
+    // 🔊 Función de lectura dual: speechSynthesis o UnrealSpeech (según entorno)
     btnAudioEl.addEventListener("click", async ()=>{
       if(!paragraphs.length) return;
 
+      // 🧠 Si está en AppCreator24 → usar UnrealSpeech + URL real desde /tmp
       if(isAppCreator){
         try{
           const fullText = paragraphs.join(" ");
@@ -224,6 +225,7 @@
           const resp = await fetch("/api/audio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:fullText})});
           const data = await resp.json();
           if(data.url){
+            console.log("URL pública del MP3:", data.url); // ✅ debug
             const audio = new Audio(data.url);
             btnAudioEl.textContent="🔊 Reproduciendo...";
             audio.play();
@@ -238,7 +240,7 @@
         return;
       }
 
-      // Navegadores normales → speechSynthesis
+      // 💻 En navegadores normales → usar speechSynthesis con resaltado
       if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
         const synth = window.speechSynthesis;
         if(synth.speaking){ synth.cancel(); btnAudioEl.classList.remove("speaking"); return; }
