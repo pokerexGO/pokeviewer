@@ -4,11 +4,9 @@ import path from "path";
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
-    if (!text || text.trim() === "") {
-      return res.status(400).json({ error: "No se proporcionó texto para el TTS." });
-    }
 
-    // Llamada a UnrealSpeech
+    if (!text) return res.status(400).json({ error: "No se proporcionó texto" });
+
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -20,7 +18,7 @@ export default async function handler(req, res) {
         VoiceId: "Will",
         Bitrate: "192k",
         Speed: "1.0",
-        Codec: "libmp3lame", // Formato correcto MP3
+        Codec: "libmp3lame", // ✅ formato correcto
       }),
     });
 
@@ -29,23 +27,21 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    // Convertir a buffer
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Crear carpeta public/temp si no existe
+    // Carpeta pública temporal dentro de /public/temp
     const tempDir = path.join(process.cwd(), "public", "temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    // Guardar archivo MP3 temporal
     const filename = `voz-${Date.now()}.mp3`;
     const filepath = path.join(tempDir, filename);
+
     fs.writeFileSync(filepath, buffer);
 
     // URL pública real
-    const publicUrl = `https://${req.headers.host}/temp/${filename}`;
+    const publicUrl = `https://pokeviewer-jade.vercel.app/temp/${filename}`;
 
-    // Enviar URL al cliente
     res.status(200).json({ url: publicUrl });
 
   } catch (error) {
