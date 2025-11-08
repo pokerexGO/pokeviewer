@@ -97,56 +97,44 @@
 
     function log(msg) {
       console.log(msg);
-      debugBox.textContent += `\n${msg}`;
+      debugBox.textContent += \n${msg};
       debugBox.scrollTop = debugBox.scrollHeight;
     }
 
     async function generarAudio(texto) {
       try {
-        log(`🎯 Botón Leer presionado. Texto: ${texto}`);
-        log(`☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)`);
+        log(🎯 Botón Leer presionado. Texto: ${texto});
+        log(☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech));
 
         const respuesta = await fetch("/api/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: texto }), // 👈 CORRECTO: la API espera "text"
+          body: JSON.stringify({ texto }),
         });
 
-        // ⚠️ Verificamos si la respuesta es JSON válida
-        const rawText = await respuesta.text();
-        let data;
-        try {
-          data = JSON.parse(rawText);
-        } catch (err) {
-          log("💥 Error: respuesta no es JSON válida del backend:");
-          log(rawText);
-          return;
-        }
-
-        log(`📦 Respuesta del backend: ${JSON.stringify(data, null, 2)}`);
+        const data = await respuesta.json();
+        log(📦 Respuesta del backend: ${JSON.stringify(data, null, 2)});
 
         if (!data.success || !data.url) {
-          log(`❌ Error en el backend: ${data.error || "Desconocido"}`);
+          log(❌ Error en el backend: ${data.error || "Desconocido"});
           return;
         }
 
         if (data.bytes) {
-          log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+          log(📏 Tamaño del audio generado: ${data.bytes} bytes);
         }
 
         const url = data.url;
-        log(`✅ URL Cloudinary recibida: ${url}`);
+        log(✅ URL Cloudinary recibida: ${url});
 
         audioPlayer.src = url;
         audioPlayer.load();
-
-        // 🎧 Reproducir directamente (compatible con AppCreator24)
         audioPlayer.play()
-          .then(() => log(`▶️ Reproducción iniciada desde: ${url}`))
-          .catch((err) => log(`⚠️ Error al reproducir: ${err.message}`));
+          .then(() => log(▶️ Reproducción iniciada desde: ${url}))
+          .catch((err) => log(⚠️ Error al reproducir: ${err.message}));
 
       } catch (error) {
-        log(`💥 Error al generar audio: ${error.message}`);
+        log(💥 Error al generar audio: ${error.message});
       }
     }
 
@@ -167,7 +155,7 @@
     });
 
     log("✅ Script cargado correctamente");
-    log("🌐 Detección de entorno: " + (typeof window.AppInventor !== "undefined" ? "AppCreator24" : "Navegador"));
+    log("🌐 Detección de entorno: Navegador normal");
   </script>
 </body>
 </html>
