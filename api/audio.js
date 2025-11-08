@@ -1,82 +1,80 @@
-console.log("✅ Script cargado correctamente");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
+import FormData from "form-data";
 
-// Detectar entorno
-const isAppCreator = typeof window.AppInventor !== "undefined";
-console.log("🌐 Detección de entorno:", isAppCreator ? "AppCreator24" : "Navegador normal");
+dotenv.config();
 
-// --- BOTONES ---
-const btnLeer = document.getElementById("leerBtn");
-const btnProbar = document.getElementById("probarTTSBtn");
-
-// --- FUNCIONES ---
-async function generarAudio(texto) {
-  console.log("🎯 Botón Leer presionado. Texto:", texto);
-
-  const payload = {
-    texto: texto,
-  };
-
-  console.log("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Método no permitido" });
+  }
 
   try {
-    const respuesta = await fetch("/api/audio", {
+    const { texto } = req.body;
+    if (!texto || texto.trim() === "") {
+      return res.status(400).json({ success: false, error: "Texto vacío" });
+    }
+
+    console.log("🎤 Texto recibido para TTS:", texto);
+
+    // === 1️⃣ GENERAR AUDIO CON UNREALSPEECH ===
+    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        Text: texto,
+        VoiceId: "Scarlett",
+        Format: "mp3",
+        Bitrate: "192k",
+        Speed: 1.0,
+        Pitch: 1.0,
+      }),
     });
 
-    const data = await respuesta.json();
-    console.log("📦 Respuesta del backend:\n", data);
-
-    if (data.success && data.url) {
-      console.log("✅ URL Cloudinary recibida:", data.url);
-      reproducirAudio(data.url);
-    } else {
-      console.error("❌ Error en la respuesta del backend:", data.error || "Sin URL válida");
+    if (!unrealResponse.ok) {
+      const errText = await unrealResponse.text();
+      console.error("❌ Error UnrealSpeech:", errText);
+      return res.status(500).json({ success: false, error: "Error en UnrealSpeech", details: errText });
     }
+
+    // Obtener el audio como buffer
+    const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
+    console.log("🎧 Audio recibido de UnrealSpeech. Tamaño:", audioBuffer.length, "bytes");
+
+    // === 2️⃣ SUBIR AUDIO A CLOUDINARY ===
+    const formData = new FormData();
+    formData.append("file", audioBuffer, { filename: "voz.mp3", contentType: "audio/mpeg" });
+    formData.append("upload_preset", "pokeviewer_unsigned"); // tu preset unsigned
+    formData.append("folder", "temp-audios");
+
+    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const uploadData = await cloudinaryResponse.json();
+    console.log("☁️ Respuesta Cloudinary:", uploadData);
+
+    if (!uploadData.secure_url) {
+      return res.status(500).json({ success: false, error: "Error al subir a Cloudinary", details: uploadData });
+    }
+
+    // === 3️⃣ RESPUESTA FINAL ===
+    return res.status(200).json({
+      success: true,
+      url: uploadData.secure_url,
+    });
+
   } catch (err) {
-    console.error("💥 Error al contactar el backend:", err);
-  }
-}
-
-function reproducirAudio(url) {
-  console.log("▶️ Reproducción iniciada desde:", url);
-  const audio = new Audio(url);
-
-  audio.oncanplaythrough = () => console.log("🎶 Audio listo para reproducirse desde Cloudinary");
-  audio.onerror = (e) => console.error("❌ Error al cargar el audio:", e);
-
-  audio.play().catch((err) => console.error("⚠️ No se pudo reproducir el audio:", err));
-}
-
-// --- BOTÓN LEER ---
-btnLeer?.addEventListener("click", async () => {
-  const texto = "Este es un Pokémon de tipo eléctrico conocido por sus mejillas que almacenan electricidad.";
-  await generarAudio(texto);
-});
-
-// --- BOTÓN PROBAR TTS DIRECTO ---
-btnProbar?.addEventListener("click", async () => {
-  console.log("🧪 Botón 'Probar TTS directo' presionado.");
-  const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
-
-  try {
-    const respuesta = await fetch("/api/audio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texto }),
+    console.error("💥 Error general:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Error general en el servidor",
+      details: err.message,
     });
-
-    const data = await respuesta.json();
-    console.log("📦 Respuesta del backend (TTS directo):\n", data);
-
-    if (data.success && data.url) {
-      console.log("✅ URL Cloudinary recibida:", data.url);
-      reproducirAudio(data.url);
-    } else {
-      console.error("❌ Error: el backend no devolvió una URL válida.", data.error || data.details);
-    }
-  } catch (error) {
-    console.error("💥 Error al ejecutar el test TTS directo:", error);
   }
-});
+}
