@@ -84,63 +84,73 @@
     <button id="probarBtn">🧪 Probar TTS directo</button>
   </div>
 
-  <audio id="audioPlayer" controls></audio>
-
   <div id="debug">Zona de depuración activa...</div>
 
   <script>
     const debugBox = document.getElementById("debug");
-    const audioPlayer = document.getElementById("audioPlayer");
     const textoInput = document.getElementById("texto");
     const leerBtn = document.getElementById("leerBtn");
     const probarBtn = document.getElementById("probarBtn");
 
+    // Función para mostrar logs
     function log(msg) {
       console.log(msg);
       debugBox.textContent += `\n${msg}`;
       debugBox.scrollTop = debugBox.scrollHeight;
     }
 
+    // Función para generar audio usando backend
     async function generarAudio(texto) {
-      try {
-        log(`🎯 Botón Leer presionado. Texto: ${texto}`);
-        log(`☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)`);
+      log(`🎯 Botón Leer presionado. Texto: ${texto}`);
+      log(`☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)`);
 
+      try {
         const respuesta = await fetch("/api/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texto }),
+          body: JSON.stringify({ text: texto, voice: "Liv" }),
         });
 
+        if (!respuesta.ok) {
+          const text = await respuesta.text();
+          throw new Error(text || "Error desconocido en el backend");
+        }
+
         const data = await respuesta.json();
-        log(`📦 Respuesta del backend: ${JSON.stringify(data, null, 2)}`);
+        log(`📦 Respuesta del backend:\n${JSON.stringify(data, null, 2)}`);
 
         if (!data.success || !data.url) {
           log(`❌ Error en el backend: ${data.error || "Desconocido"}`);
           return;
         }
 
-        if (data.bytes) {
-          log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
-        }
-
+        if (data.bytes) log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
         const url = data.url;
         log(`✅ URL Cloudinary recibida: ${url}`);
 
-        audioPlayer.src = url;
-        audioPlayer.load();
-        audioPlayer.play()
+        // Crear o usar elemento <audio> dinámico
+        let audioEl = document.getElementById("audioPlayerDynamic");
+        if (!audioEl) {
+          audioEl = document.createElement("audio");
+          audioEl.id = "audioPlayerDynamic";
+          audioEl.controls = true;
+          document.body.appendChild(audioEl);
+        }
+        audioEl.src = url;
+        audioEl.load();
+        audioEl.play()
           .then(() => log(`▶️ Reproducción iniciada desde: ${url}`))
-          .catch((err) => log(`⚠️ Error al reproducir: ${err.message}`));
+          .catch(err => log(`⚠️ No se pudo reproducir el audio: ${err.message}`));
 
       } catch (error) {
         log(`💥 Error al generar audio: ${error.message}`);
       }
     }
 
+    // --- Eventos botones ---
     leerBtn.addEventListener("click", async () => {
       const texto = textoInput.value.trim();
-      if (texto.length === 0) {
+      if (!texto) {
         log("⚠️ No se ingresó texto.");
         return;
       }
