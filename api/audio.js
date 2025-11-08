@@ -24,8 +24,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: "Texto faltante o vacío" });
   }
 
-  if (!process.env.UNREAL_SPEECH_API_KEY) {
-    console.error("🚨 Falta la clave UNREAL_SPEECH_API_KEY en el .env");
+  if (!process.env.UNREAL_API_KEY) {
+    console.error("🚨 Falta la clave UNREAL_API_KEY en el .env");
     return res.status(500).json({ success: false, error: "Falta la clave de UnrealSpeech" });
   }
 
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speak", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.UNREAL_SPEECH_API_KEY}`,
+        Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -109,3 +109,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
