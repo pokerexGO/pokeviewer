@@ -3,125 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PokéVisor TTS</title>
+  <title>Visor TTS con Cloudinary y UnrealSpeech</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #fafafa;
-      color: #222;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    h1 {
-      color: #ff3c3c;
-      margin-top: 20px;
+      background: #f3f4f6;
       text-align: center;
+      margin: 0;
+      padding: 20px;
     }
-
-    .contenedor-botones {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      margin-top: 30px;
+    h1 {
+      color: #333;
     }
-
     button {
+      margin: 10px;
       padding: 10px 20px;
       font-size: 16px;
-      background-color: #3c8aff;
-      color: white;
-      border: none;
-      border-radius: 5px;
       cursor: pointer;
-      transition: 0.3s;
-      width: 260px;
-      text-align: center;
+      border: none;
+      border-radius: 6px;
+      background: #007bff;
+      color: white;
+      transition: background 0.2s;
     }
-
     button:hover {
-      background-color: #2c6ed4;
+      background: #0056b3;
     }
-
-    /* Zona de depuración */
-    #zonaDepuracion {
-      width: 90%;
-      max-width: 600px;
-      background-color: #111;
-      color: #0f0;
-      font-family: monospace;
-      font-size: 13px;
-      margin-top: 30px;
+    #depuracion {
+      margin-top: 25px;
       padding: 10px;
-      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      text-align: left;
+      max-height: 300px;
       overflow-y: auto;
-      height: 250px;
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-    }
-
-    #zonaDepuracion::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    #zonaDepuracion::-webkit-scrollbar-thumb {
-      background-color: #333;
-      border-radius: 3px;
-    }
-
-    footer {
-      margin-top: 40px;
-      font-size: 14px;
-      color: #777;
-      text-align: center;
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
-  <h1>PokéVisor - Generador de voz</h1>
+  <h1>🎧 Visor TTS - Cloudinary + UnrealSpeech</h1>
 
-  <div class="contenedor-botones">
-    <button id="leerBtn">📖 Leer descripción Pokémon</button>
-    <button id="probarTTSBtn">🧪 Probar TTS directo</button>
-  </div>
+  <button id="leerBtn">Leer descripción Pokémon</button>
+  <button id="probarTTSBtn">Probar TTS directo</button>
 
-  <div id="zonaDepuracion">Zona de depuración activa...</div>
+  <div id="depuracion">🪵 Zona de depuración activa...</div>
 
-  <footer>Desarrollado por PokéVisor Team ⚡</footer>
-
-  <script>
-    // --- Zona de depuración visible ---
-    const zonaDepuracion = document.getElementById("zonaDepuracion");
-    const oldLog = console.log;
-    const oldError = console.error;
-
-    function agregarLog(mensaje, tipo = "log") {
-      const p = document.createElement("p");
-      p.textContent = mensaje;
-      p.style.margin = "4px 0";
-      p.style.color = tipo === "error" ? "#f55" : "#0f0";
-      zonaDepuracion.appendChild(p);
-      zonaDepuracion.scrollTop = zonaDepuracion.scrollHeight;
-    }
-
-    console.log = function (...args) {
-      oldLog.apply(console, args);
-      agregarLog(args.join(" "), "log");
-    };
-
-    console.error = function (...args) {
-      oldError.apply(console, args);
-      agregarLog(args.join(" "), "error");
-    };
-
-    console.log("✅ Zona de depuración activa...");
-  </script>
-
-  <!-- Conecta el script principal de audio -->
-  <script src="./audio.js"></script>
+  <script src="audio.js"></script>
 </body>
 </html>
