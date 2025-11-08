@@ -48,9 +48,9 @@ export default async function handler(req, res) {
       }),
     });
 
-    // ⚠️ Verificamos si UnrealSpeech devuelve un error no JSON
+    // ⚠️ Verificamos si UnrealSpeech devuelve un error no audio
     const contentType = unrealResponse.headers.get("content-type") || "";
-    if (!contentType.includes("audio") && !unrealResponse.ok) {
+    if (!contentType.includes("audio") && !contentType.includes("octet-stream") && !unrealResponse.ok) {
       const errorText = await unrealResponse.text();
       console.error("❌ Respuesta no válida de UnrealSpeech:", errorText);
       return res.status(500).json({
@@ -60,16 +60,16 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🎧 Obtenemos el audio en binario
+    // 🎧 Obtenemos el audio en binario y convertimos a Buffer
     const audioBuffer = await unrealResponse.arrayBuffer();
-    const audioBase64 = Buffer.from(audioBuffer);
+    const buffer = Buffer.from(new Uint8Array(audioBuffer));
 
     // 📦 Subimos el audio a Cloudinary
     console.log("☁️ Subiendo audio a Cloudinary...");
     const upload = await new Promise((resolve, reject) => {
       const stream = cloudinary.v2.uploader.upload_stream(
         {
-          resource_type: "video",
+          resource_type: "auto",
           folder: "temp-audios",
           public_id: `voz-${Date.now()}`,
           format: "mp3",
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
           else resolve(result);
         }
       );
-      stream.end(audioBase64);
+      stream.end(buffer);
     });
 
     console.log("✅ Audio subido con éxito:", upload.secure_url);
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     // ⏳ Eliminar tras 2 minutos
     setTimeout(async () => {
       try {
-        await cloudinary.v2.uploader.destroy(upload.public_id, { resource_type: "video" });
+        await cloudinary.v2.uploader.destroy(upload.public_id, { resource_type: "auto" });
         console.log(`🧹 Audio eliminado: ${upload.public_id}`);
       } catch (e) {
         console.warn("⚠️ No se pudo eliminar el audio:", e.message);
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       url: upload.secure_url,
-      bytes: audioBase64.length,
+      bytes: buffer.length,
     });
 
   } catch (error) {
@@ -109,4 +109,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
