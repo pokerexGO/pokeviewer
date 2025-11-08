@@ -6,8 +6,8 @@ console.log("🌐 Detección de entorno:", isAppCreator ? "AppCreator24" : "Nave
 
 // --- BOTONES ---
 const btnLeer = document.getElementById("leerBtn");
-const btnProbar = document.getElementById("probarTTSBtn");
-const depuracion = document.getElementById("depuracion");
+const btnProbar = document.getElementById("probarBtn"); // coincidiendo con el index
+const depuracion = document.getElementById("debug"); // coincidiendo con index.html
 
 // Función para mostrar logs en la zona de depuración
 function logDepuracion(mensaje) {
@@ -16,6 +16,7 @@ function logDepuracion(mensaje) {
     const linea = document.createElement("div");
     linea.textContent = mensaje;
     depuracion.appendChild(linea);
+    depuracion.scrollTop = depuracion.scrollHeight;
   }
 }
 
@@ -23,7 +24,7 @@ function logDepuracion(mensaje) {
 async function generarAudio(texto) {
   logDepuracion("🎯 Botón Leer presionado. Texto: " + texto);
 
-  const payload = { text: texto, voice: "Liv" }; // 🔹 Cambiado a text para el backend
+  const payload = { texto }; // 🔹 coincide con el backend funcional
 
   try {
     logDepuracion("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
@@ -34,21 +35,29 @@ async function generarAudio(texto) {
       body: JSON.stringify(payload),
     });
 
-    // 🔹 Comprobamos si la respuesta fue exitosa antes de parsear JSON
-    if (!respuesta.ok) {
-      const text = await respuesta.text();
-      throw new Error(text || "Error desconocido en el backend");
+    const rawText = await respuesta.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (err) {
+      logDepuracion("💥 Error: respuesta no es JSON válida del backend:");
+      logDepuracion(rawText);
+      return;
     }
 
-    const data = await respuesta.json();
     logDepuracion("📦 Respuesta del backend:\n" + JSON.stringify(data, null, 2));
 
-    if (data.success && data.url) {
-      logDepuracion("✅ URL Cloudinary recibida: " + data.url);
-      reproducirAudio(data.url);
-    } else {
+    if (!data.success || !data.url) {
       logDepuracion("❌ Error en el backend: " + (data.error || "Sin URL válida"));
+      if (data.bytes) logDepuracion(`📏 Tamaño del audio recibido: ${data.bytes} bytes`);
+      return;
     }
+
+    logDepuracion(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+    logDepuracion("✅ URL Cloudinary recibida: " + data.url);
+
+    reproducirAudio(data.url);
+
   } catch (err) {
     logDepuracion("💥 Error al generar audio: " + err.message);
   }
@@ -57,12 +66,12 @@ async function generarAudio(texto) {
 function reproducirAudio(url) {
   logDepuracion("▶️ Reproducción iniciada desde: " + url);
 
-  // 🔹 Crear un elemento <audio> en el DOM (mejor compatibilidad AppCreator)
+  // Crear o usar el <audio> existente
   let audio = document.getElementById("audioPlayer");
   if (!audio) {
     audio = document.createElement("audio");
     audio.id = "audioPlayer";
-    audio.controls = false;
+    audio.controls = true;
     document.body.appendChild(audio);
   }
 
