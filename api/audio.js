@@ -48,7 +48,6 @@ export default async function handler(req, res) {
       }),
     });
 
-    // ⚠️ Verificamos si UnrealSpeech devuelve un error no audio
     const contentType = unrealResponse.headers.get("content-type") || "";
     if (!contentType.includes("audio") && !contentType.includes("octet-stream") && !unrealResponse.ok) {
       const errorText = await unrealResponse.text();
@@ -60,11 +59,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🎧 Obtenemos el audio en binario y convertimos a Buffer
+    // 🎧 Convertir ArrayBuffer a Buffer correcto para Vercel
     const audioBuffer = await unrealResponse.arrayBuffer();
     const buffer = Buffer.from(new Uint8Array(audioBuffer));
 
-    // 📦 Subimos el audio a Cloudinary
     console.log("☁️ Subiendo audio a Cloudinary...");
     const upload = await new Promise((resolve, reject) => {
       const stream = cloudinary.v2.uploader.upload_stream(
@@ -84,7 +82,7 @@ export default async function handler(req, res) {
 
     console.log("✅ Audio subido con éxito:", upload.secure_url);
 
-    // ⏳ Eliminar tras 2 minutos
+    // 🔹 Intentamos eliminar el audio tras 2 minutos sin romper la función
     setTimeout(async () => {
       try {
         await cloudinary.v2.uploader.destroy(upload.public_id, { resource_type: "auto" });
