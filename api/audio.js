@@ -3,10 +3,9 @@ import fetch from "node-fetch";
 import stream from "stream";
 import { promisify } from "util";
 
-// Convertir funciones de callback a promesas
 const pipeline = promisify(stream.pipeline);
 
-// Configurar Cloudinary con tus variables .env
+// Configurar Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -17,22 +16,22 @@ export default async function handler(req, res) {
   console.log("📩 [API] Petición recibida en /api/audio");
 
   if (req.method !== "POST") {
-    console.error("❌ [API] Método no permitido:", req.method);
     return res.status(405).json({ success: false, error: "Método no permitido" });
   }
 
   try {
     const { texto } = req.body;
     if (!texto || texto.trim().length === 0) {
-      console.error("⚠️ [API] Texto vacío o inválido.");
       return res.status(400).json({ success: false, error: "No se proporcionó texto válido." });
     }
 
     console.log("🧠 [API] Texto recibido:", texto);
 
-    // --- Generar voz con UnrealSpeech ---
-    console.log("🎤 [API] Enviando texto a UnrealSpeech...");
+    // ✅ Voz válida
+    const voz = "Amy";
+    console.log(`🎤 [API] Generando voz con UnrealSpeech (${voz})...`);
 
+    // --- Generar voz con UnrealSpeech ---
     const unrealResponse = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -41,7 +40,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Danielle",
+        VoiceId: voz,
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -59,12 +58,12 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log("✅ [API] Audio recibido desde UnrealSpeech. Subiendo a Cloudinary...");
+    console.log("✅ [API] Audio recibido. Subiendo a Cloudinary...");
 
-    // --- Subir el audio a Cloudinary directamente desde el stream ---
+    // --- Subir audio a Cloudinary directamente ---
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        resource_type: "video", // Cloudinary requiere 'video' para MP3
+        resource_type: "video",
         folder: "temp-audios",
         public_id: `voz-${Date.now()}`,
         format: "mp3",
@@ -81,7 +80,7 @@ export default async function handler(req, res) {
 
         console.log("✅ [API] Audio subido correctamente:", result.secure_url);
 
-        // --- Programar eliminación en 2 minutos ---
+        // --- Eliminar automáticamente en 2 minutos ---
         const publicId = result.public_id;
         console.log(`🕒 [API] Programando eliminación de ${publicId} en 2 minutos...`);
 
@@ -92,9 +91,9 @@ export default async function handler(req, res) {
           } catch (err) {
             console.error("⚠️ [API] Error al eliminar automáticamente:", err);
           }
-        }, 2 * 60 * 1000); // 2 minutos
+        }, 2 * 60 * 1000);
 
-        // Responder al frontend
+        // --- Respuesta al frontend ---
         res.status(200).json({
           success: true,
           url: result.secure_url,
@@ -102,12 +101,11 @@ export default async function handler(req, res) {
       }
     );
 
-    // --- Enviar el stream de UnrealSpeech directamente a Cloudinary ---
     await pipeline(unrealResponse.body, uploadStream);
 
   } catch (err) {
     console.error("💥 [API] Error general:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       error: "Error general en el servidor",
       details: err.message,
