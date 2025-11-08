@@ -3,160 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PokeViewer</title>
+  <title>PokeAsistente - TTS Cloudinary</title>
   <style>
     body {
-      background: linear-gradient(180deg, #0b0b0b, #1c1c1c);
-      color: white;
-      font-family: 'Arial', sans-serif;
+      font-family: Arial, sans-serif;
+      background-color: #f7f8fa;
       text-align: center;
-      margin: 0;
-      padding: 0;
+      padding: 40px;
     }
 
-    #screenContainer {
-      margin-top: 20px;
+    h1 {
+      color: #3b4cca;
     }
 
     button {
-      background: #ff4757;
-      color: white;
+      background-color: #ffcc00;
       border: none;
-      padding: 10px 20px;
-      font-size: 16px;
       border-radius: 8px;
-      cursor: pointer;
+      padding: 12px 24px;
       margin: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s ease;
     }
 
     button:hover {
-      background: #e84118;
+      background-color: #ffdb4d;
     }
 
-    #debugZone {
-      background: #000000aa;
-      color: #00ffe1;
-      font-size: 12px;
-      margin: 15px auto;
-      padding: 6px;
-      width: 90%;
-      height: 130px;
-      overflow-y: auto;
-      border-radius: 6px;
-      font-family: monospace;
+    .log-container {
       text-align: left;
-      white-space: pre-wrap;
+      margin: 40px auto;
+      width: 80%;
+      max-width: 600px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      height: 250px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
     }
   </style>
 </head>
-
 <body>
-  <div id="screenContainer">
-    <h1>🔊 PokeViewer</h1>
-    <p>Reproduce la descripción del Pokémon usando UnrealSpeech + Cloudinary</p>
-    <button id="btnLeer">Leer</button>
-    <button id="btnTestTTS">Probar TTS directo</button>
+
+  <h1>🔊 PokeAsistente - Generador de Audio (TTS)</h1>
+
+  <p>Presiona uno de los botones para generar y reproducir voz desde Cloudinary.</p>
+
+  <button id="leerBtn">Leer descripción Pokémon</button>
+  <button id="probarTTSBtn">Probar TTS directo</button>
+
+  <div class="log-container" id="consoleLogs">
+    <strong>📜 Consola:</strong><br>
   </div>
 
-  <div id="debugZone"></div>
-
   <script>
-    // --- Función de log visual + consola ---
-    function logDebug(msg) {
-      const dbg = document.getElementById("debugZone");
-      const line = document.createElement("div");
-      if (typeof msg === "object") msg = JSON.stringify(msg, null, 2);
-      line.textContent = msg;
-      dbg.appendChild(line);
-      dbg.scrollTop = dbg.scrollHeight;
-      console.log(msg);
-    }
+    // Captura todos los console.log() y los muestra en pantalla
+    (function interceptConsole() {
+      const oldLog = console.log;
+      const oldErr = console.error;
+      const logBox = document.getElementById("consoleLogs");
 
-    (function () {
-      logDebug("✅ Script cargado correctamente");
+      console.log = function (...args) {
+        oldLog.apply(console, args);
+        const msg = args.map(a => typeof a === "object" ? JSON.stringify(a, null, 2) : a).join(" ");
+        const div = document.createElement("div");
+        div.style.color = "#333";
+        div.textContent = "✅ " + msg;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+      };
 
-      const btnLeer = document.getElementById("btnLeer");
-      const btnTest = document.getElementById("btnTestTTS");
-
-      // --- Detectar entorno ---
-      const isAppCreator = /AppCreator24/i.test(navigator.userAgent);
-      logDebug("🌐 Detección de entorno: " + (isAppCreator ? "AppCreator24" : "Navegador normal"));
-
-      // --- Función para reproducir audio Cloudinary ---
-      function playAudio(url) {
-        const audio = new Audio(url);
-        audio.onerror = () => logDebug("💥 Error al cargar o reproducir el audio desde Cloudinary");
-        audio.oncanplaythrough = () => logDebug("🎶 Audio listo para reproducirse desde Cloudinary");
-        audio.play().then(() => logDebug("▶️ Reproducción iniciada")).catch(err => {
-          logDebug("🚫 Error al reproducir: " + err.message);
-        });
-      }
-
-      // --- Botón Leer ---
-      btnLeer.addEventListener("click", async () => {
-        const texto = "Este es un Pokémon de tipo eléctrico conocido por sus mejillas que almacenan electricidad.";
-        logDebug("🎯 Botón Leer presionado. Texto: " + texto);
-        logDebug("🔍 Modo: " + (isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal"));
-
-        if (!isAppCreator && "speechSynthesis" in window) {
-          // Modo navegador normal
-          logDebug("🗣️ Usando speechSynthesis local");
-          const utter = new SpeechSynthesisUtterance(texto);
-          utter.lang = "es-ES";
-          utter.rate = 1;
-          speechSynthesis.speak(utter);
-        } else {
-          // Modo AppCreator24: usar backend Cloudinary
-          logDebug("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
-          try {
-            const resp = await fetch("/api/audio", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: texto }),
-            });
-
-            const data = await resp.json();
-            logDebug("📦 Respuesta del backend:");
-            logDebug(data);
-
-            if (data.url) {
-              logDebug("✅ URL Cloudinary recibida: " + data.url);
-              playAudio(data.url);
-            } else {
-              logDebug("❌ Error: no se recibió una URL válida desde el backend.");
-            }
-          } catch (err) {
-            logDebug("💥 Error de conexión al backend: " + err.message);
-          }
-        }
-      });
-
-      // --- Botón Probar TTS directo ---
-      btnTest.addEventListener("click", async () => {
-        const testText = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
-        logDebug("🧪 Botón 'Probar TTS directo' presionado.");
-        logDebug("🎤 Texto de prueba: " + testText);
-        try {
-          const resp = await fetch("/api/audio", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: testText }),
-          });
-          const data = await resp.json();
-          logDebug("📦 Respuesta del backend (TTS directo):");
-          logDebug(data);
-
-          if (data.url) {
-            logDebug("✅ URL Cloudinary recibida: " + data.url);
-            playAudio(data.url);
-          } else {
-            logDebug("❌ Error: el backend no devolvió una URL válida.");
-          }
-        } catch (error) {
-          logDebug("💥 Error general TTS: " + error.message);
-        }
-      });
+      console.error = function (...args) {
+        oldErr.apply(console, args);
+        const msg = args.map(a => typeof a === "object" ? JSON.stringify(a, null, 2) : a).join(" ");
+        const div = document.createElement("div");
+        div.style.color = "red";
+        div.textContent = "❌ " + msg;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+      };
     })();
   </script>
+
+  <!-- ✅ Script principal (frontend) -->
+  <script src="js/audio.js"></script>
 </body>
 </html>
