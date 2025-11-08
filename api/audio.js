@@ -1,14 +1,23 @@
-import fs from "fs";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
 
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
+
     if (!text || text.trim() === "") {
       return res.status(400).json({ error: "No se proporcionó texto para el TTS." });
     }
 
-    // 🔹 Llamada a UnrealSpeech API
+    // 🔧 Configurar Cloudinary con tus variables de entorno
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+
+    // 🎙️ Llamar a UnrealSpeech para generar el audio
     const response = await fetch("https://api.v7.unrealspeech.com/stream", {
       method: "POST",
       headers: {
@@ -29,32 +38,48 @@ export default async function handler(req, res) {
       throw new Error(`Error en UnrealSpeech: ${errorText}`);
     }
 
-    // 🔹 Convertir a buffer binario
+    // 🔄 Convertir respuesta a buffer
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 🔹 Crear carpeta temporal dentro de /public/temp
-    const tempDir = path.join(process.cwd(), "public", "temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-    // 🔹 Guardar el archivo MP3
-    const filename = `voz-${Date.now()}.mp3`;
-    const filepath = path.join(tempDir, filename);
-    fs.writeFileSync(filepath, buffer);
-
-    // 🔹 Generar URL pública (desde el dominio del proyecto)
-    const publicUrl = `https://${req.headers.host}/temp/${filename}`;
-
-    console.log("✅ Audio generado correctamente:", publicUrl);
-
-    // 🔹 Devolver respuesta clara
-    res.status(200).json({
-      success: true,
-      audioUrl: publicUrl,
+    // ☁️ Subir a Cloudinary directamente desde el buffer
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: "video", // Cloudinary maneja MP3 como "video"
+          folder: "temp-audios",
+          public_id: `voz-${Date.now()}`,
+          format: "mp3",
+          overwrite: false,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      streamifier.createReadStream(buffer).pipe(uploadStream);
     });
 
+    const publicUrl = uploadResult.secure_url;
+    console.log("✅ Audio subido a Cloudinary:", publicUrl);
+
+    // 🕒 Programar eliminación automática después de 2 minutos
+    setTimeout(async () => {
+      try {
+        await cloudinary.uploader.destroy(uploadResult.public_id, {
+          resource_type: "video",
+        });
+        console.log("🗑️ Audio eliminado de Cloudinary:", uploadResult.public_id);
+      } catch (deleteError) {
+        console.error("⚠️ Error al eliminar audio automáticamente:", deleteError);
+      }
+    }, 2 * 60 * 1000); // 2 minutos
+
+    // 🔗 Enviar la URL pública
+    res.status(200).json({ success: true, url: publicUrl });
+
   } catch (error) {
-    console.error("💥 Error en proxy UnrealSpeech:", error);
+    console.error("❌ Error en /api/audio:", error);
     res.status(500).json({
       success: false,
       error: "Error al generar el audio.",
