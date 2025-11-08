@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import fetch from "node-fetch";
 
-// --- CONFIGURACIÓN DE CLOUDINARY ---
+// --- CONFIGURACIÓN CLOUDINARY ---
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -19,7 +19,6 @@ export default async function handler(req, res) {
 
   try {
     const { texto } = req.body;
-
     if (!texto || texto.trim().length === 0) {
       console.error("⚠️ [API] Texto vacío o inválido recibido.");
       return res.status(400).json({ success: false, error: "No se proporcionó texto válido." });
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Danielle", // puedes cambiar la voz
+        VoiceId: "Danielle",
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -46,7 +45,6 @@ export default async function handler(req, res) {
       }),
     });
 
-    // --- MANEJO DETALLADO DE ERRORES UNREALSPEECH ---
     if (!unrealResponse.ok) {
       let errorData;
       try {
@@ -56,7 +54,6 @@ export default async function handler(req, res) {
       }
 
       console.error("❌ [API] Error al contactar UnrealSpeech:", errorData);
-
       return res.status(500).json({
         success: false,
         error: "Error en UnrealSpeech API",
@@ -67,7 +64,6 @@ export default async function handler(req, res) {
     const audioBuffer = await unrealResponse.arrayBuffer();
     console.log("✅ [API] Audio recibido desde UnrealSpeech. Tamaño:", audioBuffer.byteLength, "bytes");
 
-    // --- VALIDACIÓN DE AUDIO ---
     if (audioBuffer.byteLength < 5000) {
       console.warn("⚠️ [API] Audio demasiado corto. Puede estar vacío o falló la generación.");
       return res.status(500).json({
@@ -82,7 +78,7 @@ export default async function handler(req, res) {
     const uploadPromise = new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          resource_type: "video", // para permitir MP3
+          resource_type: "video",
           folder: "temp-audios",
           public_id: `voz-${Date.now()}`,
           format: "mp3",
@@ -98,14 +94,12 @@ export default async function handler(req, res) {
         }
       );
 
-      // Pasar el buffer a Cloudinary
       const buffer = Buffer.from(audioBuffer);
       uploadStream.end(buffer);
     });
 
     const cloudinaryResult = await uploadPromise;
 
-    // --- RESPUESTA FINAL ---
     res.status(200).json({
       success: true,
       url: cloudinaryResult.secure_url,
