@@ -1,7 +1,12 @@
 import { v2 as cloudinary } from "cloudinary";
 import fetch from "node-fetch";
+import stream from "stream";
+import { promisify } from "util";
 
-// Configurar Cloudinary (usa tus credenciales del archivo .env)
+// Convertir funciones de callback a promesas
+const pipeline = promisify(stream.pipeline);
+
+// Configurar Cloudinary con tus variables .env
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -19,7 +24,7 @@ export default async function handler(req, res) {
   try {
     const { texto } = req.body;
     if (!texto || texto.trim().length === 0) {
-      console.error("⚠️ [API] Texto vacío o inválido recibido.");
+      console.error("⚠️ [API] Texto vacío o inválido.");
       return res.status(400).json({ success: false, error: "No se proporcionó texto válido." });
     }
 
@@ -46,7 +51,7 @@ export default async function handler(req, res) {
 
     if (!unrealResponse.ok) {
       const errorText = await unrealResponse.text();
-      console.error("❌ [API] Error al contactar UnrealSpeech:", errorText);
+      console.error("❌ [API] Error UnrealSpeech:", errorText);
       return res.status(500).json({
         success: false,
         error: "Error en UnrealSpeech API",
@@ -54,61 +59,51 @@ export default async function handler(req, res) {
       });
     }
 
-    const audioBuffer = await unrealResponse.arrayBuffer();
-    console.log("✅ [API] Audio recibido desde UnrealSpeech. Tamaño:", audioBuffer.byteLength, "bytes");
+    console.log("✅ [API] Audio recibido desde UnrealSpeech. Subiendo a Cloudinary...");
 
-    if (audioBuffer.byteLength < 5000) {
-      console.warn("⚠️ [API] Audio demasiado corto o vacío.");
-      return res.status(500).json({
-        success: false,
-        error: "El audio generado es demasiado corto o vacío.",
-      });
-    }
-
-    // --- Subir a Cloudinary ---
-    console.log("☁️ [API] Subiendo audio a Cloudinary...");
-
-    const uploadPromise = new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: "video",
-          folder: "temp-audios",
-          public_id: `voz-${Date.now()}`,
-          format: "mp3",
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(result);
-          }
+    // --- Subir el audio a Cloudinary directamente desde el stream ---
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "video", // Cloudinary requiere 'video' para MP3
+        folder: "temp-audios",
+        public_id: `voz-${Date.now()}`,
+        format: "mp3",
+      },
+      async (error, result) => {
+        if (error) {
+          console.error("❌ [API] Error al subir a Cloudinary:", error);
+          return res.status(500).json({
+            success: false,
+            error: "Fallo al subir el audio a Cloudinary",
+            details: error.message,
+          });
         }
-      );
 
-      uploadStream.end(Buffer.from(audioBuffer));
-    });
+        console.log("✅ [API] Audio subido correctamente:", result.secure_url);
 
-    const result = await uploadPromise;
-    console.log("✅ [API] Audio subido correctamente:", result.secure_url);
+        // --- Programar eliminación en 2 minutos ---
+        const publicId = result.public_id;
+        console.log(`🕒 [API] Programando eliminación de ${publicId} en 2 minutos...`);
 
-    // --- Programar eliminación automática ---
-    const publicId = result.public_id;
-    console.log(`🕒 [API] Programando eliminación de ${publicId} en 2 minutos...`);
+        setTimeout(async () => {
+          try {
+            await cloudinary.uploader.destroy(publicId, { resource_type: "video" });
+            console.log(`🧹 [API] Audio eliminado automáticamente: ${publicId}`);
+          } catch (err) {
+            console.error("⚠️ [API] Error al eliminar automáticamente:", err);
+          }
+        }, 2 * 60 * 1000); // 2 minutos
 
-    setTimeout(async () => {
-      try {
-        await cloudinary.uploader.destroy(publicId, { resource_type: "video" });
-        console.log(`🧹 [API] Audio eliminado automáticamente de Cloudinary: ${publicId}`);
-      } catch (error) {
-        console.error(`⚠️ [API] Error al eliminar audio automáticamente:`, error);
+        // Responder al frontend
+        res.status(200).json({
+          success: true,
+          url: result.secure_url,
+        });
       }
-    }, 2 * 60 * 1000); // 2 minutos
+    );
 
-    // --- Devolver URL al frontend ---
-    res.status(200).json({
-      success: true,
-      url: result.secure_url,
-    });
+    // --- Enviar el stream de UnrealSpeech directamente a Cloudinary ---
+    await pipeline(unrealResponse.body, uploadStream);
 
   } catch (err) {
     console.error("💥 [API] Error general:", err);
