@@ -23,7 +23,7 @@ function logDepuracion(mensaje) {
 async function generarAudio(texto) {
   logDepuracion("🎯 Botón Leer presionado. Texto: " + texto);
 
-  const payload = { texto };
+  const payload = { text: texto, voice: "Liv" }; // 🔹 Cambiado a text para el backend
 
   try {
     logDepuracion("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
@@ -33,6 +33,12 @@ async function generarAudio(texto) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    // 🔹 Comprobamos si la respuesta fue exitosa antes de parsear JSON
+    if (!respuesta.ok) {
+      const text = await respuesta.text();
+      throw new Error(text || "Error desconocido en el backend");
+    }
 
     const data = await respuesta.json();
     logDepuracion("📦 Respuesta del backend:\n" + JSON.stringify(data, null, 2));
@@ -44,13 +50,23 @@ async function generarAudio(texto) {
       logDepuracion("❌ Error en el backend: " + (data.error || "Sin URL válida"));
     }
   } catch (err) {
-    logDepuracion("💥 Error al contactar el backend: " + err.message);
+    logDepuracion("💥 Error al generar audio: " + err.message);
   }
 }
 
 function reproducirAudio(url) {
   logDepuracion("▶️ Reproducción iniciada desde: " + url);
-  const audio = new Audio(url);
+
+  // 🔹 Crear un elemento <audio> en el DOM (mejor compatibilidad AppCreator)
+  let audio = document.getElementById("audioPlayer");
+  if (!audio) {
+    audio = document.createElement("audio");
+    audio.id = "audioPlayer";
+    audio.controls = false;
+    document.body.appendChild(audio);
+  }
+
+  audio.src = url;
   audio.oncanplaythrough = () => logDepuracion("🎶 Audio listo para reproducirse desde Cloudinary");
   audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + e.message);
   audio.play().catch((err) => logDepuracion("⚠️ No se pudo reproducir el audio: " + err.message));
@@ -68,4 +84,3 @@ btnProbar?.addEventListener("click", async () => {
   const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
   await generarAudio(texto);
 });
-
