@@ -1,168 +1,274 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PokeAsistente - Lector de Voz</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PokeViewer</title>
   <style>
+    :root {
+      --bg: #0d1117;
+      --card-red: #d62828;
+      --screen: #222;
+      --accent: #ffcc00;
+      --muted: #9aa4b2;
+      --text: #e6edf3;
+      --glass: rgba(255,255,255,0.02);
+      --border: #444;
+    }
+
+    html,body {
+      height:100%;
+      margin:0;
+      padding:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:Arial,Helvetica,sans-serif;
+      overflow:hidden;
+    }
     body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f5f5;
-      color: #333;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      box-sizing:border-box;
     }
 
-    h1 {
-      color: #4CAF50;
+    .wrapper { width:100%; max-width:380px; }
+
+    .title-row {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .bolt {
+      width:32px;height:32px;
+      background:linear-gradient(180deg,#fff8b0,#ffcc00);
+      clip-path: polygon(35% 0%, 60% 0%, 40% 55%, 70% 55%, 30% 100%, 40% 60%, 10% 60%);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+      opacity:0.9;
+    }
+    .title {
+      font-size:1.7rem; font-weight:800; color:var(--accent);
+      text-shadow:0 0 10px #ffcc0088; letter-spacing:0.6px;
     }
 
-    textarea {
-      width: 90%;
-      height: 100px;
-      font-size: 16px;
-      margin-bottom: 15px;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      resize: none;
+    .pokedex {
+      background: var(--card-red);
+      border-radius:18px;
+      padding:18px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      border: 2px solid rgba(0,0,0,0.35);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
     }
 
-    button {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      margin: 5px;
-      cursor: pointer;
-      transition: background 0.3s;
+    .screen-container {
+      background: var(--screen);
+      border-radius:10px;
+      border:3px solid var(--border);
+      padding:14px;
+      min-height:280px;
+      max-height:50vh;
+      width:100%;
+      overflow:auto;
+      box-sizing:border-box;
     }
 
-    button:hover {
-      background-color: #45a049;
+    .pokemon-img {
+      width:160px; height:160px; display:block; margin:10px auto;
+      border-radius:8px; background:var(--screen);
+      animation:float 2.2s ease-in-out infinite;
     }
 
-    #log {
-      background: #222;
-      color: #0f0;
-      font-family: monospace;
-      text-align: left;
-      padding: 10px;
-      border-radius: 10px;
-      margin-top: 20px;
-      white-space: pre-wrap;
-      max-height: 250px;
-      overflow-y: auto;
+    @keyframes float {
+      0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);}
     }
+
+    #resultado p {
+      background: rgba(0,0,0,0.35);
+      padding:10px; border-radius:8px; margin:8px 0;
+      line-height:1.45;
+    }
+
+    .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
+    .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
+
+    .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+    input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
+    .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
+    .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
+
+    #btnAudio, #btnTestTTS {
+      margin:6px 0;
+      width:100%;
+      padding:14px;
+      border-radius:10px;
+      background:#222;
+      border:2px solid transparent;
+      color:#fff;
+      cursor:pointer;
+      font-weight:700;
+      font-size:1.05rem;
+      transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
+    }
+
+    #btnAudio.speaking {
+      border:2px solid #00f0ff;
+      animation: pulseBtn 1s infinite alternate;
+    }
+
+    @keyframes pulseBtn {
+      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
+    }
+
   </style>
 </head>
 <body>
-  <h1>🔊 PokeAsistente</h1>
-  <p>Introduce un texto y presiona “Leer” para escucharlo en voz alta.</p>
+  <div class="wrapper">
+    <div class="title-row">
+      <div class="bolt left"></div>
+      <div class="title">PokeViewer</div>
+      <div class="bolt right"></div>
+    </div>
 
-  <textarea id="texto" placeholder="Escribe el texto que quieres escuchar..."></textarea><br>
+    <div class="pokedex">
+      <div class="screen-container" id="screenContainer">
+        <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
+      </div>
 
-  <button id="leer">🔊 Leer</button>
+      <button id="btnAudio">🔊 Leer</button>
+      <button id="btnTestTTS">Probar TTS directo</button>
 
-  <!-- 🔍 Nuevo botón de prueba TTS directo -->
-  <button id="probar-tts">🔍 Probar TTS directo</button>
-
-  <div id="log">Zona de depuración activa...</div>
+      <div class="controls">
+        <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
+        <button id="buscarBtn" class="btnBuscar">Buscar</button>
+        <button id="clearBtn" class="btnClear">Limpiar</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    const logDiv = document.getElementById("log");
-    function log(msg) {
-      console.log(msg);
-      logDiv.textContent += "\n" + msg;
+  (function(){
+    console.log("✅ Script cargado correctamente");
+
+    const input = document.getElementById('pokemonInput');
+    const buscarBtn = document.getElementById('buscarBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const screen = document.getElementById('screen');
+    const btnAudioEl = document.getElementById('btnAudio');
+    const btnTestTTS = document.getElementById('btnTestTTS');
+
+    let paragraphs = [], paragraphElements = [], currentParagraphIndex = 0;
+
+    const isAppCreator = /appcreator24/i.test(navigator.userAgent);
+    console.log(`🌐 Detección de entorno: ${isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal"}`);
+
+    async function buscarPokemon(nombre){
+      if(!nombre) return;
+      screen.innerHTML = `<p>Buscando información sobre <strong>${nombre}</strong>...</p>`;
+      try {
+        const resp = await fetch("/api/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pokemon: nombre })
+        });
+        const data = await resp.json();
+        const respuesta = data.respuesta || "No se recibió respuesta.";
+        const sprite = data.sprite || "";
+        screen.innerHTML = (sprite ? `<img src="${sprite}" class="pokemon-img">` : "") + `<p>${respuesta}</p>`;
+        paragraphs = [respuesta];
+        btnAudioEl.style.display = "block";
+      } catch (err) {
+        console.error("Error al buscar Pokémon:", err);
+      }
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      log("✅ Script cargado correctamente");
+    buscarBtn.addEventListener("click", () => {
+      const nombre = input.value.trim();
+      if (!nombre) return alert("Ingresa un nombre de Pokémon");
+      buscarPokemon(nombre);
     });
 
-    document.getElementById("leer").addEventListener("click", async () => {
-      const texto = document.getElementById("texto").value.trim();
-      if (!texto) {
-        log("⚠️ No hay texto para leer.");
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      screen.innerHTML = `<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
+      btnAudioEl.style.display = "none";
+    });
+
+    // 🔊 Botón principal de lectura
+    btnAudioEl.addEventListener("click", async () => {
+      if (!paragraphs.length) return;
+      const textToSpeak = paragraphs.join(" ");
+      console.log("🎯 Botón Leer presionado. Texto:", textToSpeak);
+      console.log("🔍 Detección de entorno:", isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal");
+
+      if (isAppCreator) {
+        console.log("📱 Modo AppCreator24 detectado: usando Cloudinary (backend UnrealSpeech)");
+        try {
+          console.log("🌀 Enviando texto al backend para generar audio...");
+          const resp = await fetch("/api/audio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: textToSpeak })
+          });
+          const data = await resp.json();
+          console.log("🔊 Respuesta del backend:", data);
+
+          if (data && data.url) {
+            console.log("✅ URL pública recibida:", data.url);
+            const audio = new Audio(data.url);
+            console.log("🎧 Intentando reproducir:", data.url);
+            audio.play().catch(e => console.error("🚫 Error al reproducir audio:", e));
+            audio.onended = () => console.log("✅ Audio finalizado correctamente.");
+          } else {
+            console.error("💥 Error: no se recibió URL válida del backend");
+          }
+        } catch (error) {
+          console.error("❌ Error general al generar o reproducir audio:", error);
+        }
         return;
       }
 
-      log("🎯 Botón Leer presionado. Texto: " + texto);
-
-      // Detectar entorno
-      const isAppCreator = /appcreator/i.test(navigator.userAgent) || typeof Android !== "undefined";
-      log("🔍 Detección de entorno: " + (isAppCreator ? "AppCreator24 (sin speechSynthesis)" : "Navegador normal"));
-
-      if (!isAppCreator && "speechSynthesis" in window) {
-        // 🔊 Usar speechSynthesis en navegador normal
-        const utterance = new SpeechSynthesisUtterance(texto);
-        utterance.lang = "es-ES";
-        speechSynthesis.speak(utterance);
-        log("✅ Reproduciendo con speechSynthesis.");
-        return;
-      }
-
-      // 📱 Si está en AppCreator24, usar backend UnrealSpeech
-      try {
-        log("📱 Modo AppCreator24 detectado: usando backend con UnrealSpeech");
-        log("🌀 Enviando texto al backend para generar audio...");
-
-        const response = await fetch("/api/audio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: texto }),
-        });
-
-        const data = await response.json();
-
-        if (data.success && data.audioUrl) {
-          log("✅ URL pública recibida: " + data.audioUrl);
-          const audio = new Audio(data.audioUrl);
-          audio.play().then(() => {
-            log("🎧 Reproduciendo audio desde UnrealSpeech...");
-          }).catch(err => {
-            log("💥 Error al reproducir audio: " + err.message);
-          });
-        } else {
-          log("❌ Error del servidor: " + JSON.stringify(data));
-        }
-      } catch (err) {
-        log("💥 Error general: " + err.message);
+      // 💻 En navegadores normales
+      if ("speechSynthesis" in window) {
+        const synth = window.speechSynthesis;
+        const utter = new SpeechSynthesisUtterance(textToSpeak);
+        utter.lang = "es-ES";
+        btnAudioEl.classList.add("speaking");
+        synth.speak(utter);
+        utter.onend = () => btnAudioEl.classList.remove("speaking");
       }
     });
 
-    // 🔍 BOTÓN DE PRUEBA TTS DIRECTO
-    document.getElementById("probar-tts").addEventListener("click", async () => {
-      const texto = "Hola, este es un test directo del generador de voz UnrealSpeech.";
-      log("🚀 Prueba directa TTS con texto: " + texto);
-
+    // 🔊 Botón de prueba directa
+    btnTestTTS.addEventListener("click", async () => {
+      const testText = "Hola, este es un test directo del generador de voz UnrealSpeech.";
+      console.log("🎤 Prueba directa TTS con texto:", testText);
       try {
-        const res = await fetch("/api/audio", {
+        const resp = await fetch("/api/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: texto }),
+          body: JSON.stringify({ text: testText })
         });
-
-        const data = await res.json();
-        log("📩 Respuesta de /api/audio: " + JSON.stringify(data));
-
-        if (data.success && data.audioUrl) {
-          const audio = new Audio(data.audioUrl);
-          audio.play().then(() => {
-            log("🎧 Reproduciendo audio de prueba...");
-          }).catch(err => {
-            log("💥 Error al reproducir audio: " + err.message);
-          });
+        const data = await resp.json();
+        console.log("🔊 Respuesta de /api/audio:", data);
+        if (data && data.url) {
+          console.log("🎧 Reproduciendo audio de prueba:", data.url);
+          const audio = new Audio(data.url);
+          audio.play().catch(e => console.error("Error al reproducir audio:", e));
         } else {
-          log("❌ Error en la respuesta TTS: " + JSON.stringify(data));
+          console.error("❌ Error en la respuesta TTS:", data);
         }
       } catch (err) {
-        log("💥 Error en la prueba TTS: " + err.message);
+        console.error("💥 Error general en la prueba TTS:", err);
       }
     });
+
+  })();
   </script>
 </body>
 </html>
