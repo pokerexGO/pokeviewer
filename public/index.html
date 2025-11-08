@@ -17,62 +17,22 @@
       margin: 0;
       padding: 20px;
     }
-
-    h1 {
-      color: #00c3ff;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
+    h1 { color: #00c3ff; margin-bottom: 20px; text-align: center; }
     textarea {
-      width: 90%;
-      max-width: 400px;
-      height: 120px;
-      border-radius: 8px;
-      border: none;
-      padding: 10px;
-      resize: none;
-      font-size: 1rem;
+      width: 90%; max-width: 400px; height: 120px; border-radius: 8px;
+      border: none; padding: 10px; resize: none; font-size: 1rem;
     }
-
     button {
-      background: #007bff;
-      border: none;
-      padding: 10px 18px;
-      margin: 10px 5px;
-      border-radius: 8px;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
-      transition: 0.3s;
+      background: #007bff; border: none; padding: 10px 18px; margin: 10px 5px;
+      border-radius: 8px; color: white; cursor: pointer; font-weight: bold; transition: 0.3s;
     }
-
-    button:hover {
-      background: #00b7ff;
-      transform: scale(1.05);
-    }
-
+    button:hover { background: #00b7ff; transform: scale(1.05); }
     #debug {
-      margin-top: 25px;
-      width: 95%;
-      max-width: 600px;
-      background: #111;
-      padding: 12px;
-      border-radius: 10px;
-      height: 300px;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 0.9rem;
-      white-space: pre-wrap;
-      border: 1px solid #333;
+      margin-top: 25px; width: 95%; max-width: 600px; background: #111;
+      padding: 12px; border-radius: 10px; height: 300px; overflow-y: auto;
+      font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; border: 1px solid #333;
     }
-
-    audio {
-      margin-top: 20px;
-      width: 100%;
-      max-width: 500px;
-      outline: none;
-    }
+    audio { margin-top: 20px; width: 100%; max-width: 500px; outline: none; }
   </style>
 </head>
 <body>
@@ -97,50 +57,56 @@
 
     function log(msg) {
       console.log(msg);
-      debugBox.textContent += \n${msg};
+      debugBox.textContent += `\n${msg}`;
       debugBox.scrollTop = debugBox.scrollHeight;
     }
 
     async function generarAudio(texto) {
-      try {
-        log(🎯 Botón Leer presionado. Texto: ${texto});
-        log(☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech));
+      log(`🎯 Botón Leer presionado. Texto: ${texto}`);
+      log("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
 
+      try {
         const respuesta = await fetch("/api/audio", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texto }),
+          body: JSON.stringify({ texto }), // 👈 coincidiendo con el backend
         });
 
-        const data = await respuesta.json();
-        log(📦 Respuesta del backend: ${JSON.stringify(data, null, 2)});
-
-        if (!data.success || !data.url) {
-          log(❌ Error en el backend: ${data.error || "Desconocido"});
+        const rawText = await respuesta.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (err) {
+          log("💥 Error: respuesta no es JSON válida del backend:");
+          log(rawText);
           return;
         }
 
-        if (data.bytes) {
-          log(📏 Tamaño del audio generado: ${data.bytes} bytes);
+        log(`📦 Respuesta del backend: ${JSON.stringify(data, null, 2)}`);
+
+        if (!data.success || !data.url) {
+          log(`❌ Error en el backend: ${data.error || "Desconocido"}`);
+          if (data.bytes) log(`📏 Tamaño del audio recibido: ${data.bytes} bytes`);
+          return;
         }
 
-        const url = data.url;
-        log(✅ URL Cloudinary recibida: ${url});
+        log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+        log(`✅ URL Cloudinary recibida: ${data.url}`);
 
-        audioPlayer.src = url;
+        audioPlayer.src = data.url;
         audioPlayer.load();
         audioPlayer.play()
-          .then(() => log(▶️ Reproducción iniciada desde: ${url}))
-          .catch((err) => log(⚠️ Error al reproducir: ${err.message}));
+          .then(() => log(`▶️ Reproducción iniciada desde: ${data.url}`))
+          .catch(err => log(`⚠️ Error al reproducir: ${err.message}`));
 
-      } catch (error) {
-        log(💥 Error al generar audio: ${error.message});
+      } catch (err) {
+        log(`💥 Error al generar audio: ${err.message}`);
       }
     }
 
     leerBtn.addEventListener("click", async () => {
       const texto = textoInput.value.trim();
-      if (texto.length === 0) {
+      if (!texto) {
         log("⚠️ No se ingresó texto.");
         return;
       }
@@ -155,7 +121,7 @@
     });
 
     log("✅ Script cargado correctamente");
-    log("🌐 Detección de entorno: Navegador normal");
+    log("🌐 Detección de entorno: " + (typeof window.AppInventor !== "undefined" ? "AppCreator24" : "Navegador"));
   </script>
 </body>
 </html>
