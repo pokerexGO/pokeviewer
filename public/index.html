@@ -3,53 +3,159 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visor TTS con Cloudinary y UnrealSpeech</title>
+  <title>PokeAsistente - TTS</title>
   <style>
     body {
+      background: #0a0a0a;
+      color: #fff;
       font-family: Arial, sans-serif;
-      background: #f3f4f6;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
       margin: 0;
       padding: 20px;
     }
+
     h1 {
-      color: #333;
+      color: #00c3ff;
+      margin-bottom: 20px;
+      text-align: center;
     }
-    button {
-      margin: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
+
+    textarea {
+      width: 90%;
+      max-width: 400px;
+      height: 120px;
+      border-radius: 8px;
       border: none;
-      border-radius: 6px;
-      background: #007bff;
-      color: white;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    #depuracion {
-      margin-top: 25px;
       padding: 10px;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      text-align: left;
-      max-height: 300px;
+      resize: none;
+      font-size: 1rem;
+    }
+
+    button {
+      background: #007bff;
+      border: none;
+      padding: 10px 18px;
+      margin: 10px 5px;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #00b7ff;
+      transform: scale(1.05);
+    }
+
+    #debug {
+      margin-top: 25px;
+      width: 95%;
+      max-width: 600px;
+      background: #111;
+      padding: 12px;
+      border-radius: 10px;
+      height: 300px;
       overflow-y: auto;
-      font-size: 13px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      border: 1px solid #333;
+    }
+
+    audio {
+      margin-top: 20px;
+      width: 100%;
+      max-width: 500px;
+      outline: none;
     }
   </style>
 </head>
 <body>
-  <h1>🎧 Visor TTS - Cloudinary + UnrealSpeech</h1>
+  <h1>🎧 PokeAsistente - TTS Debug</h1>
 
-  <button id="leerBtn">Leer descripción Pokémon</button>
-  <button id="probarTTSBtn">Probar TTS directo</button>
+  <textarea id="texto" placeholder="Escribe el texto que deseas convertir a voz..."></textarea>
+  <div>
+    <button id="leerBtn">🔊 Leer descripción Pokémon</button>
+    <button id="probarBtn">🧪 Probar TTS directo</button>
+  </div>
 
-  <div id="depuracion">🪵 Zona de depuración activa...</div>
+  <audio id="audioPlayer" controls></audio>
 
-  <script src="audio.js"></script>
+  <div id="debug">Zona de depuración activa...</div>
+
+  <script>
+    const debugBox = document.getElementById("debug");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const textoInput = document.getElementById("texto");
+    const leerBtn = document.getElementById("leerBtn");
+    const probarBtn = document.getElementById("probarBtn");
+
+    function log(msg) {
+      console.log(msg);
+      debugBox.textContent += `\n${msg}`;
+      debugBox.scrollTop = debugBox.scrollHeight;
+    }
+
+    async function generarAudio(texto) {
+      try {
+        log(`🎯 Botón Leer presionado. Texto: ${texto}`);
+        log(`☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)`);
+
+        const respuesta = await fetch("/api/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texto }),
+        });
+
+        const data = await respuesta.json();
+        log(`📦 Respuesta del backend: ${JSON.stringify(data, null, 2)}`);
+
+        if (!data.success || !data.url) {
+          log(`❌ Error en el backend: ${data.error || "Desconocido"}`);
+          return;
+        }
+
+        if (data.bytes) {
+          log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+        }
+
+        const url = data.url;
+        log(`✅ URL Cloudinary recibida: ${url}`);
+
+        audioPlayer.src = url;
+        audioPlayer.load();
+        audioPlayer.play()
+          .then(() => log(`▶️ Reproducción iniciada desde: ${url}`))
+          .catch((err) => log(`⚠️ Error al reproducir: ${err.message}`));
+
+      } catch (error) {
+        log(`💥 Error al generar audio: ${error.message}`);
+      }
+    }
+
+    leerBtn.addEventListener("click", async () => {
+      const texto = textoInput.value.trim();
+      if (texto.length === 0) {
+        log("⚠️ No se ingresó texto.");
+        return;
+      }
+      await generarAudio(texto);
+    });
+
+    probarBtn.addEventListener("click", async () => {
+      const testText = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
+      textoInput.value = testText;
+      log("🧪 Botón 'Probar TTS directo' presionado.");
+      await generarAudio(testText);
+    });
+
+    log("✅ Script cargado correctamente");
+    log("🌐 Detección de entorno: Navegador normal");
+  </script>
 </body>
 </html>
