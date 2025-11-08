@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 import fetch from "node-fetch";
-import { Readable } from "stream";
 
 // 🔧 Configuración de Cloudinary
 cloudinary.config({
@@ -28,10 +27,10 @@ export default async function handler(req, res) {
 
     console.log("🧠 [API] Texto recibido:", texto);
 
-    // --- GENERAR VOZ CON UNREALSPEECH ---
+    // --- GENERAR VOZ CON UNREALSPEECH (archivo completo) ---
     console.log("🎤 [API] Solicitando voz a UnrealSpeech...");
 
-    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/stream", {
+    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speak", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
@@ -39,7 +38,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Liv", // ✅ usa una voz válida
+        VoiceId: "Liv", // voz válida
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -57,12 +56,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // 📦 Obtener el audio como buffer
+    // --- DESCARGAR TODO EL AUDIO ---
     const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
-    console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
+    console.log("✅ [API] Audio descargado. Tamaño:", audioBuffer.byteLength, "bytes");
 
     if (audioBuffer.byteLength < 5000) {
-      console.warn("⚠️ [API] El audio generado es muy corto o está vacío.");
+      console.warn("⚠️ [API] El audio generado es demasiado corto o vacío.");
       return res.status(500).json({
         success: false,
         error: "El audio generado es demasiado corto o vacío.",
@@ -71,37 +70,35 @@ export default async function handler(req, res) {
     }
 
     // --- SUBIR A CLOUDINARY ---
-    console.log("☁️ [API] Subiendo a Cloudinary...");
+    console.log("☁️ [API] Subiendo audio completo a Cloudinary...");
 
-    const uploadStream = () =>
-      new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: "video",
-            folder: "temp-audios",
-            public_id: `voz-${Date.now()}`,
-            format: "mp3",
-          },
-          (error, result) => {
-            if (error) {
-              console.error("❌ [API] Error al subir a Cloudinary:", error);
-              reject(error);
-            } else {
-              console.log("✅ [API] Audio subido:", result.secure_url);
-              resolve(result);
-            }
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: "video",
+          folder: "temp-audios",
+          public_id: `voz-${Date.now()}`,
+          format: "mp3",
+        },
+        (error, result) => {
+          if (error) {
+            console.error("❌ [API] Error al subir a Cloudinary:", error);
+            reject(error);
+          } else {
+            console.log("✅ [API] Audio subido a Cloudinary:", result.secure_url);
+            resolve(result);
           }
-        );
+        }
+      );
 
-        Readable.from(audioBuffer).pipe(stream);
-      });
-
-    const result = await uploadStream();
+      // 🔹 Es importante finalizar correctamente el stream
+      stream.end(audioBuffer);
+    });
 
     // --- ELIMINAR DESPUÉS DE 2 MINUTOS ---
     setTimeout(async () => {
       try {
-        const publicId = result.public_id;
+        const publicId = uploadResult.public_id;
         console.log(`🕒 [API] Eliminando audio temporal: ${publicId}`);
         await cloudinary.uploader.destroy(publicId, { resource_type: "video" });
         console.log(`✅ [API] Audio eliminado de Cloudinary: ${publicId}`);
@@ -113,9 +110,10 @@ export default async function handler(req, res) {
     // ✅ RESPUESTA EXITOSA
     return res.status(200).json({
       success: true,
-      url: result.secure_url,
+      url: uploadResult.secure_url,
       bytes: audioBuffer.byteLength,
     });
+
   } catch (err) {
     console.error("💥 [API] Error general:", err);
     return res.status(500).json({
