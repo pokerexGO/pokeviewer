@@ -56,34 +56,47 @@ async function generarAudio(texto) {
     logDepuracion(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
     logDepuracion("✅ URL Cloudinary recibida: " + data.url);
 
-    reproducirAudio(data.url);
+    // 🔹 Reproducir audio usando Blob para asegurar compatibilidad
+    await reproducirAudio(data.url);
 
   } catch (err) {
     logDepuracion("💥 Error al generar audio: " + err.message);
   }
 }
 
-function reproducirAudio(url) {
+async function reproducirAudio(url) {
   logDepuracion("▶️ Reproducción iniciada desde: " + url);
 
-  // Crear o usar el <audio> existente
-  let audio = document.getElementById("audioPlayer");
-  if (!audio) {
-    audio = document.createElement("audio");
-    audio.id = "audioPlayer";
-    audio.controls = true;
-    document.body.appendChild(audio);
-  }
+  try {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const blob = new Blob([arrayBuffer], { type: "audio/mpeg" });
+    const audioUrl = URL.createObjectURL(blob);
 
-  audio.src = url;
-  audio.oncanplaythrough = () => logDepuracion("🎶 Audio listo para reproducirse desde Cloudinary");
-  audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + e.message);
-  audio.play().catch((err) => logDepuracion("⚠️ No se pudo reproducir el audio: " + err.message));
+    let audio = document.getElementById("audioPlayer");
+    if (!audio) {
+      audio = document.createElement("audio");
+      audio.id = "audioPlayer";
+      audio.controls = true;
+      document.body.appendChild(audio);
+    }
+
+    audio.src = audioUrl;
+    audio.oncanplaythrough = () => logDepuracion("🎶 Audio listo para reproducirse desde Cloudinary");
+    audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + e.message);
+    await audio.play();
+  } catch (err) {
+    logDepuracion("💥 Error al reproducir el audio: " + err.message);
+  }
 }
 
 // --- BOTÓN LEER ---
 btnLeer?.addEventListener("click", async () => {
-  const texto = "Este es un Pokémon de tipo eléctrico conocido por sus mejillas que almacenan electricidad.";
+  const texto = document.getElementById("texto").value.trim();
+  if (!texto) {
+    logDepuracion("⚠️ No se ingresó texto.");
+    return;
+  }
   await generarAudio(texto);
 });
 
@@ -91,5 +104,6 @@ btnLeer?.addEventListener("click", async () => {
 btnProbar?.addEventListener("click", async () => {
   logDepuracion("🧪 Botón 'Probar TTS directo' presionado.");
   const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
+  document.getElementById("texto").value = texto;
   await generarAudio(texto);
 });
