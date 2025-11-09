@@ -1,9 +1,12 @@
-import { v2 as cloudinary } from "cloudinary";
 import fetch from "node-fetch";
+import dotenv from "dotenv";
+import cloudinary from "cloudinary";
 import { Readable } from "stream";
 
+dotenv.config();
+
 // Configuración Cloudinary
-cloudinary.config({
+cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
@@ -16,61 +19,67 @@ export default async function handler(req, res) {
 
   const { texto } = req.body;
   if (!texto || texto.trim().length === 0) {
-    return res.status(400).json({ success: false, error: "Texto vacío" });
+    return res.status(400).json({ success: false, error: "No se recibió texto para generar audio" });
   }
 
   try {
-    // Llamada a UnrealSpeech (endpoint /speech)
+    // --- Llamada a UnrealSpeech (endpoint /speech) ---
     const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
+        "Authorization": `Bearer ${process.env.UNREAL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        Text: texto,
-        VoiceId: "Amy",
-        Bitrate: "192k",
-        Speed: 1.0,
-        Pitch: 1.0,
-        Format: "mp3",
+        voice: "Amy",       // voz que funciona
+        input: texto,
+        format: "mp3",      // pedimos MP3 completo
+        sampleRate: 24000
       }),
     });
 
     if (!unrealResponse.ok) {
-      const errorText = await unrealResponse.text();
-      return res.status(500).json({ success: false, error: "Error UnrealSpeech API", details: errorText });
+      const text = await unrealResponse.text();
+      return res.status(500).json({ success: false, error: "Error en UnrealSpeech API", details: text });
     }
 
+    // Descargar audio completo como buffer
     const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
 
-    if (audioBuffer.byteLength < 5000) {
-      // Aunque el audio sea muy corto, se puede subir
-      console.warn("⚠️ Audio muy corto, se subirá de todos modos.");
+    if (audioBuffer.length < 1000) {
+      // Para evitar audio demasiado corto
+      return res.status(500).json({
+        success: false,
+        error: "El audio generado es demasiado corto o vacío",
+        bytes: audioBuffer.length
+      });
     }
 
-    // Subir a Cloudinary con resource_type auto
-    const uploadStream = () =>
-      new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "temp-audios",
-            public_id: `voz-${Date.now()}`,
-            resource_type: "auto", // 🔹 Detecta automáticamente audio/mp3
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        Readable.from(audioBuffer).pipe(stream);
-      });
+    // Subir a Cloudinary (resource_type: "auto" para evitar errores de tipo)
+    const uploadResult = await cloudinary.v2.uploader.upload_stream(
+      { resource_type: "auto", folder: "temp-audios" },
+      (error, result) => {
+        if (error || !result) {
+          return res.status(500).json({ success: false, error: "Error al subir a Cloudinary", details: error });
+        }
+        // Responder con URL y tamaño
+        res.status(200).json({
+          success: true,
+          url: result.secure_url,
+          bytes: audioBuffer.length
+        });
+      }
+    );
 
-    const result = await uploadStream();
+    // Convertir buffer a stream y enviar a Cloudinary
+    const readable = new Readable();
+    readable._read = () => {};
+    readable.push(audioBuffer);
+    readable.push(null);
+    readable.pipe(uploadResult);
 
-    // Respuesta exitosa
-    res.status(200).json({ success: true, url: result.secure_url, bytes: audioBuffer.byteLength });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, error: "Error general en el servidor", details: err.message });
   }
 }
