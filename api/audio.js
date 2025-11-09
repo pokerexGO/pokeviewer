@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Amy", // ✅ Voz funcional
+        VoiceId: "Amy",  // 🔹 voz funcional
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -61,6 +61,15 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
     console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
 
+    if (audioBuffer.byteLength < 1000) {
+      console.warn("⚠️ [API] El audio generado es muy corto o vacío.");
+      return res.status(500).json({
+        success: false,
+        error: "El audio generado es demasiado corto o vacío.",
+        bytes: audioBuffer.byteLength,
+      });
+    }
+
     // --- SUBIR A CLOUDINARY ---
     console.log("☁️ [API] Subiendo a Cloudinary...");
 
@@ -68,10 +77,9 @@ export default async function handler(req, res) {
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "auto", // 🔹 Ajustado para que mp3 sea reconocible
+            resource_type: "auto", // 🔹 permite subir MP3 correctamente
             folder: "temp-audios",
             public_id: `voz-${Date.now()}`,
-            format: "mp3",
           },
           (error, result) => {
             if (error) {
@@ -84,6 +92,7 @@ export default async function handler(req, res) {
           }
         );
 
+        // Pipe del buffer al stream
         Readable.from(audioBuffer).pipe(stream);
       });
 
