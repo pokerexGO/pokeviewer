@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     // --- GENERAR VOZ CON UNREALSPEECH ---
     console.log("🎤 [API] Solicitando voz a UnrealSpeech...");
 
-    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speak", {
+    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Liv",
+        VoiceId: "Amy", // ✅ voz Amy
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -61,15 +61,10 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
     console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
 
-    // 🔹 TEMPORAL: Ignorar tamaño mínimo para subir el audio aunque sea pequeño
-    // if (audioBuffer.byteLength < 5000) {
-    //   console.warn("⚠️ [API] El audio generado es muy corto o está vacío.");
-    //   return res.status(500).json({
-    //     success: false,
-    //     error: "El audio generado es demasiado corto o vacío.",
-    //     bytes: audioBuffer.byteLength,
-    //   });
-    // }
+    // ⚠️ Permitimos cualquier tamaño, incluso si es corto
+    if (audioBuffer.byteLength === 0) {
+      console.warn("⚠️ [API] El audio generado está vacío, se enviará de todos modos.");
+    }
 
     // --- SUBIR A CLOUDINARY ---
     console.log("☁️ [API] Subiendo a Cloudinary...");
@@ -94,7 +89,9 @@ export default async function handler(req, res) {
           }
         );
 
-        Readable.from(audioBuffer).pipe(stream);
+        // 🔹 Pipe y cerrar correctamente
+        const readable = Readable.from(audioBuffer);
+        readable.pipe(stream);
       });
 
     const result = await uploadStream();
@@ -109,7 +106,7 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error("⚠️ [API] Error al eliminar audio:", err.message);
       }
-    }, 2 * 60 * 1000);
+    }, 2 * 60 * 1000); // 2 minutos
 
     // ✅ RESPUESTA EXITOSA
     return res.status(200).json({
