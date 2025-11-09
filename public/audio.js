@@ -6,8 +6,8 @@ console.log("🌐 Detección de entorno:", isAppCreator ? "AppCreator24" : "Nave
 
 // --- BOTONES ---
 const btnLeer = document.getElementById("leerBtn");
-const btnProbar = document.getElementById("probarBtn"); // coincidiendo con el index
-const depuracion = document.getElementById("debug"); // coincidiendo con index.html
+const btnProbar = document.getElementById("probarBtn");
+const depuracion = document.getElementById("debug");
 
 // Función para mostrar logs en la zona de depuración
 function logDepuracion(mensaje) {
@@ -24,7 +24,7 @@ function logDepuracion(mensaje) {
 async function generarAudio(texto) {
   logDepuracion("🎯 Botón Leer presionado. Texto: " + texto);
 
-  const payload = { texto }; // 🔹 coincide con el backend funcional
+  const payload = { texto };
 
   try {
     logDepuracion("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
@@ -56,43 +56,33 @@ async function generarAudio(texto) {
     logDepuracion(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
     logDepuracion("✅ URL Cloudinary recibida: " + data.url);
 
-    // 🔹 Reproducir audio usando Blob para asegurar compatibilidad
-    await reproducirAudio(data.url);
+    reproducirAudio(data.url);
 
   } catch (err) {
     logDepuracion("💥 Error al generar audio: " + err.message);
   }
 }
 
-async function reproducirAudio(url) {
+function reproducirAudio(url) {
   logDepuracion("▶️ Reproducción iniciada desde: " + url);
 
-  try {
-    const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    const blob = new Blob([arrayBuffer], { type: "audio/mpeg" });
-    const audioUrl = URL.createObjectURL(blob);
+  const audio = document.getElementById("audioPlayer");
 
-    let audio = document.getElementById("audioPlayer");
-    if (!audio) {
-      audio = document.createElement("audio");
-      audio.id = "audioPlayer";
-      audio.controls = true;
-      document.body.appendChild(audio);
-    }
-
-    audio.src = audioUrl;
-    audio.oncanplaythrough = () => logDepuracion("🎶 Audio listo para reproducirse desde Cloudinary");
-    audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + e.message);
-    await audio.play();
-  } catch (err) {
-    logDepuracion("💥 Error al reproducir el audio: " + err.message);
-  }
+  fetch(url)
+    .then(res => res.arrayBuffer())
+    .then(buffer => {
+      const blob = new Blob([buffer], { type: "audio/mp3" });
+      audio.src = URL.createObjectURL(blob);
+      return audio.play();
+    })
+    .then(() => logDepuracion("🎶 Audio reproducido correctamente"))
+    .catch(err => logDepuracion("⚠️ No se pudo reproducir el audio: " + err.message));
 }
 
 // --- BOTÓN LEER ---
 btnLeer?.addEventListener("click", async () => {
-  const texto = document.getElementById("texto").value.trim();
+  const textoInput = document.getElementById("texto");
+  const texto = textoInput.value.trim();
   if (!texto) {
     logDepuracion("⚠️ No se ingresó texto.");
     return;
@@ -102,8 +92,8 @@ btnLeer?.addEventListener("click", async () => {
 
 // --- BOTÓN PROBAR TTS DIRECTO ---
 btnProbar?.addEventListener("click", async () => {
+  const testText = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
+  document.getElementById("texto").value = testText;
   logDepuracion("🧪 Botón 'Probar TTS directo' presionado.");
-  const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
-  document.getElementById("texto").value = texto;
-  await generarAudio(texto);
+  await generarAudio(testText);
 });
