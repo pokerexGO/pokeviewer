@@ -1,81 +1,120 @@
+import { v2 as cloudinary } from "cloudinary";
 import fetch from "node-fetch";
+import { Readable } from "stream";
 import dotenv from "dotenv";
-import cloudinary from "cloudinary";
-import fs from "fs";
-import path from "path";
 
 dotenv.config();
 
-// Configuración Cloudinary
-cloudinary.v2.config({
+// 🔧 Configuración de Cloudinary
+cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Función para generar audio
+// 🗂️ Ruta principal del backend
 export default async function handler(req, res) {
+  console.log("📩 [API] Petición recibida en /api/audio");
+
   if (req.method !== "POST") {
+    console.error("❌ [API] Método no permitido:", req.method);
     return res.status(405).json({ success: false, error: "Método no permitido" });
   }
 
-  const { texto } = req.body;
-  if (!texto) {
-    return res.status(400).json({ success: false, error: "No se proporcionó texto" });
-  }
-
   try {
-    // 1️⃣ Solicitar audio completo a UnrealSpeech
-    const unrealResp = await fetch("https://api.v7.unrealspeech.com/speech", {
+    const { texto } = req.body;
+
+    if (!texto || texto.trim().length === 0) {
+      console.warn("⚠️ [API] Texto vacío o inválido recibido.");
+      return res.status(400).json({ success: false, error: "No se proporcionó texto válido." });
+    }
+
+    console.log("🧠 [API] Texto recibido:", texto);
+
+    // --- GENERAR VOZ CON UNREALSPEECH ---
+    console.log("🎤 [API] Solicitando voz a UnrealSpeech...");
+
+    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
         "Content-Type": "application/json",
-        "x-api-key": process.env.UNREAL_API_KEY
       },
       body: JSON.stringify({
-        text: texto,
-        voice: "Amy",  // voz Amy compatible
-        format: "mp3"
-      })
+        Text: texto,
+        VoiceId: "Amy", // ✅ voz que funciona
+        Bitrate: "192k",
+        Speed: 1.0,
+        Pitch: 1.0,
+        Format: "mp3",
+      }),
     });
 
-    if (!unrealResp.ok) {
-      const errorText = await unrealResp.text();
-      return res.status(500).json({ success: false, error: "Error en UnrealSpeech API", details: errorText });
+    if (!unrealResponse.ok) {
+      const errorText = await unrealResponse.text();
+      console.error("❌ [API] Error UnrealSpeech:", errorText);
+      return res.status(500).json({
+        success: false,
+        error: "Error en UnrealSpeech API",
+        details: errorText,
+      });
     }
 
-    // 2️⃣ Descargar todo el audio a buffer
-    const audioBuffer = Buffer.from(await unrealResp.arrayBuffer());
+    // 📦 Obtener el audio como buffer
+    const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
+    console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
 
-    if (audioBuffer.length < 500) { // mínimo 0.5 KB para no considerar vacío
-      return res.status(200).json({ success: false, error: "El audio generado es demasiado corto o vacío.", bytes: audioBuffer.length });
-    }
+    // --- SUBIR A CLOUDINARY ---
+    console.log("☁️ [API] Subiendo a Cloudinary...");
 
-    // 3️⃣ Guardar temporalmente
-    const tempFile = path.join(process.cwd(), "temp-audio.mp3");
-    fs.writeFileSync(tempFile, audioBuffer);
+    const uploadStream = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: "auto", // 🔹 Auto detecta el tipo
+            folder: "temp-audios",
+            public_id: `voz-${Date.now()}`,
+            format: "mp3",
+          },
+          (error, result) => {
+            if (error) {
+              console.error("❌ [API] Error al subir a Cloudinary:", error);
+              reject(error);
+            } else {
+              console.log("✅ [API] Audio subido:", result.secure_url);
+              resolve(result);
+            }
+          }
+        );
+        Readable.from(audioBuffer).pipe(stream);
+      });
 
-    // 4️⃣ Subir a Cloudinary
-    const uploadResp = await cloudinary.v2.uploader.upload(tempFile, {
-      resource_type: "auto",
-      folder: "temp-audios",
-      use_filename: true,
-      unique_filename: true,
-      overwrite: true
-    });
+    const result = await uploadStream();
 
-    // 5️⃣ Borrar temporal
-    fs.unlinkSync(tempFile);
+    // --- ELIMINAR DESPUÉS DE 2 MINUTOS ---
+    setTimeout(async () => {
+      try {
+        const publicId = result.public_id;
+        console.log(`🕒 [API] Eliminando audio temporal: ${publicId}`);
+        await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
+        console.log(`✅ [API] Audio eliminado de Cloudinary: ${publicId}`);
+      } catch (err) {
+        console.error("⚠️ [API] Error al eliminar audio:", err.message);
+      }
+    }, 2 * 60 * 1000); // 2 minutos
 
-    // 6️⃣ Responder con la URL final
-    res.status(200).json({
+    // ✅ RESPUESTA EXITOSA
+    return res.status(200).json({
       success: true,
-      url: uploadResp.secure_url,
-      bytes: audioBuffer.length
+      url: result.secure_url,
+      bytes: audioBuffer.byteLength,
     });
-
   } catch (err) {
-    console.error("💥 Error general:", err);
-    res.status(500).json({ success: false, error: "Error general en el servidor", details: err.message });
+    console.error("💥 [API] Error general:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Error general en el servidor",
+      details: err.message,
+    });
   }
 }
