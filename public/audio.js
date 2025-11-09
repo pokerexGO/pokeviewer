@@ -35,7 +35,8 @@ async function generarAudio(texto) {
     const respuesta = await fetch("/api/audio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texto })
+      // ✅ el backend espera "text", no "texto"
+      body: JSON.stringify({ text: texto }),
     });
 
     const rawText = await respuesta.text();
@@ -50,16 +51,17 @@ async function generarAudio(texto) {
 
     logDepuracion("📦 Respuesta del backend:\n" + JSON.stringify(data, null, 2));
 
-    if (!data.success || !data.url) {
-      logDepuracion("❌ Error en el backend: " + (data.error || "Sin URL válida"));
+    // ✅ usa "audioUrl" (no "url")
+    if (!data.success || !data.audioUrl) {
+      logDepuracion("❌ Error en el backend: " + (data.error || "Sin audioUrl válida"));
       if (data.bytes) logDepuracion(`📏 Tamaño del audio recibido: ${data.bytes} bytes`);
       return;
     }
 
     logDepuracion(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
-    logDepuracion("✅ URL Cloudinary recibida: " + data.url);
+    logDepuracion("✅ URL Cloudinary recibida: " + data.audioUrl);
 
-    reproducirAudio(data.url);
+    reproducirAudio(data.audioUrl);
 
   } catch (err) {
     logDepuracion("💥 Error al generar audio: " + err.message);
@@ -78,6 +80,8 @@ function reproducirAudio(url) {
     document.body.appendChild(audio);
   }
 
+  audio.pause();
+  audio.src = "";
   audio.src = url;
   audio.type = "audio/mpeg"; // fuerza compatibilidad MP3
   audio.load();
@@ -88,7 +92,9 @@ function reproducirAudio(url) {
     audio.play().catch(err => logDepuracion("⚠️ Error al reproducir: " + err.message));
   };
 
-  audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + e.message);
+  audio.onerror = (e) => {
+    logDepuracion("❌ Error al cargar el audio: " + e.message);
+  };
 }
 
 // --- BOTÓN LEER ---
