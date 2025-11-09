@@ -9,9 +9,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Tamaño mínimo de audio para considerarlo válido
-const MIN_AUDIO_BYTES = 10000; // 10 KB
-
 // 🗂️ Ruta principal del backend
 export default async function handler(req, res) {
   console.log("📩 [API] Petición recibida en /api/audio");
@@ -22,7 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    let { texto } = req.body;
+    const { texto } = req.body;
 
     if (!texto || texto.trim().length === 0) {
       console.warn("⚠️ [API] Texto vacío o inválido recibido.");
@@ -42,7 +39,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Amy", // voz que funciona
+        VoiceId: "Amy", // ✅ Voz funcional
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -60,44 +57,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // 📦 Obtener el audio como buffer
-    let audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
+    // 📦 Obtener el audio completo como buffer
+    const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
     console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
-
-    // Si el audio es demasiado corto, se agrega texto de relleno para generar MP3 reproducible
-    if (audioBuffer.byteLength < MIN_AUDIO_BYTES) {
-      console.warn("⚠️ [API] Audio demasiado corto, se agregará texto de relleno.");
-
-      const fillerText = texto + " ... esto es un relleno para asegurar audio reproducible.";
-      const fillerResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          Text: fillerText,
-          VoiceId: "Amy",
-          Bitrate: "192k",
-          Speed: 1.0,
-          Pitch: 1.0,
-          Format: "mp3",
-        }),
-      });
-
-      if (!fillerResponse.ok) {
-        const errorText = await fillerResponse.text();
-        console.error("❌ [API] Error UnrealSpeech con relleno:", errorText);
-        return res.status(500).json({
-          success: false,
-          error: "Error en UnrealSpeech API con relleno",
-          details: errorText,
-        });
-      }
-
-      audioBuffer = Buffer.from(await fillerResponse.arrayBuffer());
-      console.log("✅ [API] Audio con relleno recibido. Tamaño:", audioBuffer.byteLength, "bytes");
-    }
 
     // --- SUBIR A CLOUDINARY ---
     console.log("☁️ [API] Subiendo a Cloudinary...");
@@ -106,7 +68,7 @@ export default async function handler(req, res) {
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "raw",
+            resource_type: "auto", // 🔹 Ajustado para que mp3 sea reconocible
             folder: "temp-audios",
             public_id: `voz-${Date.now()}`,
             format: "mp3",
@@ -132,12 +94,12 @@ export default async function handler(req, res) {
       try {
         const publicId = result.public_id;
         console.log(`🕒 [API] Eliminando audio temporal: ${publicId}`);
-        await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+        await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
         console.log(`✅ [API] Audio eliminado de Cloudinary: ${publicId}`);
       } catch (err) {
         console.error("⚠️ [API] Error al eliminar audio:", err.message);
       }
-    }, 2 * 60 * 1000);
+    }, 2 * 60 * 1000); // 2 minutos
 
     // ✅ RESPUESTA EXITOSA
     return res.status(200).json({
@@ -145,7 +107,6 @@ export default async function handler(req, res) {
       url: result.secure_url,
       bytes: audioBuffer.byteLength,
     });
-
   } catch (err) {
     console.error("💥 [API] Error general:", err);
     return res.status(500).json({
