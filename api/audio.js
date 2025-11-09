@@ -28,10 +28,10 @@ export default async function handler(req, res) {
 
     console.log("🧠 [API] Texto recibido:", texto);
 
-    // --- GENERAR VOZ COMPLETA CON UNREALSPEECH ---
-    console.log("🎤 [API] Solicitando voz completa a UnrealSpeech...");
+    // --- GENERAR VOZ CON UNREALSPEECH ---
+    console.log("🎤 [API] Solicitando voz a UnrealSpeech...");
 
-    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
+    const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speak", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
@@ -57,18 +57,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // 📦 Obtener el audio completo como buffer
+    // 📦 Obtener el audio como buffer
     const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
     console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
 
-    if (audioBuffer.byteLength < 5000) {
-      console.warn("⚠️ [API] El audio generado es muy corto o está vacío.");
-      return res.status(500).json({
-        success: false,
-        error: "El audio generado es demasiado corto o vacío.",
-        bytes: audioBuffer.byteLength,
-      });
-    }
+    // 🔹 TEMPORAL: Ignorar tamaño mínimo para subir el audio aunque sea pequeño
+    // if (audioBuffer.byteLength < 5000) {
+    //   console.warn("⚠️ [API] El audio generado es muy corto o está vacío.");
+    //   return res.status(500).json({
+    //     success: false,
+    //     error: "El audio generado es demasiado corto o vacío.",
+    //     bytes: audioBuffer.byteLength,
+    //   });
+    // }
 
     // --- SUBIR A CLOUDINARY ---
     console.log("☁️ [API] Subiendo a Cloudinary...");
@@ -108,7 +109,7 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error("⚠️ [API] Error al eliminar audio:", err.message);
       }
-    }, 2 * 60 * 1000); // 2 minutos
+    }, 2 * 60 * 1000);
 
     // ✅ RESPUESTA EXITOSA
     return res.status(200).json({
@@ -116,7 +117,6 @@ export default async function handler(req, res) {
       url: result.secure_url,
       bytes: audioBuffer.byteLength,
     });
-
   } catch (err) {
     console.error("💥 [API] Error general:", err);
     return res.status(500).json({
