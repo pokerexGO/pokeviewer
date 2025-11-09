@@ -45,9 +45,98 @@
   </div>
 
   <audio id="audioPlayer" controls></audio>
+
   <div id="debug">Zona de depuración activa...</div>
 
-  <!-- Conecta con audio.js frontend -->
-  <script src="audio.js"></script>
+  <script>
+    const debugBox = document.getElementById("debug");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const textoInput = document.getElementById("texto");
+    const leerBtn = document.getElementById("leerBtn");
+    const probarBtn = document.getElementById("probarBtn");
+
+    function log(msg) {
+      console.log(msg);
+      debugBox.textContent += `\n${msg}`;
+      debugBox.scrollTop = debugBox.scrollHeight;
+    }
+
+    async function generarAudio(texto) {
+      if (!texto || texto.trim().length === 0) {
+        log("⚠️ No se ingresó texto para generar audio.");
+        return;
+      }
+
+      log(`🎯 Botón Leer presionado. Texto: ${texto}`);
+      log("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
+
+      try {
+        const respuesta = await fetch("/api/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texto })
+        });
+
+        const rawText = await respuesta.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (err) {
+          log("💥 Error: respuesta no es JSON válida del backend:");
+          log(rawText);
+          return;
+        }
+
+        log(`📦 Respuesta del backend:\n${JSON.stringify(data, null, 2)}`);
+
+        if (!data.success || !data.url) {
+          log(`❌ Error en el backend: ${data.error || "Sin URL válida"}`);
+          if (data.bytes) log(`📏 Tamaño del audio recibido: ${data.bytes} bytes`);
+          return;
+        }
+
+        log(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+        log(`✅ URL Cloudinary recibida: ${data.url}`);
+
+        // Reproducir audio aunque sea muy corto
+        reproducirAudio(data.url);
+
+      } catch (err) {
+        log(`💥 Error al generar audio: ${err.message}`);
+      }
+    }
+
+    function reproducirAudio(url) {
+      log(`▶️ Reproducción iniciada desde: ${url}`);
+
+      // Descargar audio como blob para forzar compatibilidad
+      fetch(url)
+        .then(r => r.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          audioPlayer.src = blobUrl;
+          audioPlayer.load();
+          return audioPlayer.play();
+        })
+        .then(() => log("🎶 Audio reproducido correctamente"))
+        .catch(err => log(`⚠️ No se pudo reproducir el audio: ${err.message}`));
+    }
+
+    // --- BOTONES ---
+    leerBtn.addEventListener("click", async () => {
+      const texto = textoInput.value.trim();
+      await generarAudio(texto);
+    });
+
+    probarBtn.addEventListener("click", async () => {
+      const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
+      textoInput.value = texto;
+      log("🧪 Botón 'Probar TTS directo' presionado.");
+      await generarAudio(texto);
+    });
+
+    log("✅ Script cargado correctamente");
+    log("🌐 Detección de entorno: " + (typeof window.AppInventor !== "undefined" ? "AppCreator24" : "Navegador"));
+  </script>
 </body>
 </html>
