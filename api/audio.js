@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "video",
+            resource_type: "raw",
             folder: "temp-audios",
             public_id: `voz-${Date.now()}`,
             format: "mp3",
@@ -123,3 +123,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
