@@ -66,23 +66,28 @@ async function generarAudio(texto) {
 function reproducirAudio(url) {
   logDepuracion("▶️ Reproducción iniciada desde: " + url);
 
-  const audio = document.getElementById("audioPlayer");
+  // Crear o usar el <audio> existente
+  let audio = document.getElementById("audioPlayer");
+  if (!audio) {
+    audio = document.createElement("audio");
+    audio.id = "audioPlayer";
+    audio.controls = true;
+    document.body.appendChild(audio);
+  }
 
-  fetch(url)
-    .then(res => res.arrayBuffer())
-    .then(buffer => {
-      const blob = new Blob([buffer], { type: "audio/mp3" });
-      audio.src = URL.createObjectURL(blob);
-      return audio.play();
-    })
-    .then(() => logDepuracion("🎶 Audio reproducido correctamente"))
-    .catch(err => logDepuracion("⚠️ No se pudo reproducir el audio: " + err.message));
+  audio.src = url;
+  audio.type = "audio/mpeg"; // Forzar tipo mp3
+  audio.oncanplaythrough = () => logDepuracion("🎶 Audio listo para reproducirse desde Cloudinary");
+  audio.onerror = (e) => logDepuracion("❌ Error al cargar el audio: " + (e.message || "Formato no soportado"));
+
+  audio.play().catch((err) => {
+    logDepuracion("⚠️ No se pudo reproducir el audio: " + err.message);
+  });
 }
 
 // --- BOTÓN LEER ---
 btnLeer?.addEventListener("click", async () => {
-  const textoInput = document.getElementById("texto");
-  const texto = textoInput.value.trim();
+  const texto = document.getElementById("texto").value.trim();
   if (!texto) {
     logDepuracion("⚠️ No se ingresó texto.");
     return;
@@ -92,8 +97,8 @@ btnLeer?.addEventListener("click", async () => {
 
 // --- BOTÓN PROBAR TTS DIRECTO ---
 btnProbar?.addEventListener("click", async () => {
-  const testText = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
-  document.getElementById("texto").value = testText;
+  const texto = "Hola, este es un test directo del generador de voz UnrealSpeech usando Cloudinary.";
+  document.getElementById("texto").value = texto;
   logDepuracion("🧪 Botón 'Probar TTS directo' presionado.");
-  await generarAudio(testText);
+  await generarAudio(texto);
 });
