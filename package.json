@@ -1,15 +1,28 @@
 {
-  "name": "visor-audio",
+  "name": "pokeasistente",
   "version": "1.0.0",
-  "description": "Proyecto visor con API de Cloudinary y UnrealSpeech",
-  "main": "api/audio.js",
-  "type": "commonjs",
+  "description": "PokeAsistente - Generador de voz TTS con UnrealSpeech y Cloudinary",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node api/audio.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "cloudinary": "^2.8.0",
-    "streamifier": "^0.1.1",
-    "node-fetch": "^2.7.0"
-  }
+    "express": "^4.19.2",
+    "cloudinary": "^1.41.3",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "tts",
+    "unrealspeech",
+    "cloudinary",
+    "vercel",
+    "pokeasistente"
+  ],
+  "author": "Alex Narvaez",
+  "license": "MIT"
 }
