@@ -45,78 +45,9 @@
   </div>
 
   <audio id="audioPlayer" controls></audio>
-
   <div id="debug">Zona de depuración activa...</div>
 
-  <script>
-    const debugBox = document.getElementById("debug");
-    const audioPlayer = document.getElementById("audioPlayer");
-    const textoInput = document.getElementById("texto");
-    const leerBtn = document.getElementById("leerBtn");
-    const probarBtn = document.getElementById("probarBtn");
-
-    function log(msg) {
-      console.log(msg);
-      if (debugBox) {
-        const linea = document.createElement("div");
-        linea.textContent = msg;
-        debugBox.appendChild(linea);
-        debugBox.scrollTop = debugBox.scrollHeight;
-      }
-    }
-
-    async function generarAudio(texto) {
-      log("🎯 Generando audio: " + texto);
-      log("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
-
-      try {
-        const respuesta = await fetch("/api/audio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texto }),
-        });
-
-        const data = await respuesta.json();
-
-        if (!data.success || !data.url) {
-          log("❌ Error backend: " + (data.error || "Sin URL válida"));
-          return;
-        }
-
-        log(`📏 Tamaño del audio: ${data.bytes} bytes`);
-        log(`✅ URL Cloudinary: ${data.url}`);
-
-        // Crear Blob para reproducir el audio directamente
-        const resAudio = await fetch(data.url);
-        const arrayBuffer = await resAudio.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: "audio/mp3" });
-        const blobUrl = URL.createObjectURL(blob);
-
-        audioPlayer.src = blobUrl;
-        audioPlayer.play()
-          .then(() => log("▶️ Reproducción iniciada"))
-          .catch(err => log("⚠️ Error al reproducir: " + err.message));
-
-      } catch (err) {
-        log("💥 Error generar audio: " + err.message);
-      }
-    }
-
-    leerBtn.addEventListener("click", async () => {
-      const texto = textoInput.value.trim();
-      if (!texto) { log("⚠️ No se ingresó texto."); return; }
-      await generarAudio(texto);
-    });
-
-    probarBtn.addEventListener("click", async () => {
-      const testText = "Hola, este es un test directo de UnrealSpeech usando Cloudinary.";
-      textoInput.value = testText;
-      log("🧪 Botón 'Probar TTS directo'");
-      await generarAudio(testText);
-    });
-
-    log("✅ Script cargado correctamente");
-    log("🌐 Detección de entorno: " + (typeof window.AppInventor !== "undefined" ? "AppCreator24" : "Navegador"));
-  </script>
+  <!-- Conecta el frontend audio.js -->
+  <script src="./audio.js"></script>
 </body>
 </html>
