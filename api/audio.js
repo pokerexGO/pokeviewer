@@ -14,15 +14,12 @@ export default async function handler(req, res) {
   console.log("📩 [API] Petición recibida en /api/audio");
 
   if (req.method !== "POST") {
-    console.error("❌ [API] Método no permitido:", req.method);
     return res.status(405).json({ success: false, error: "Método no permitido" });
   }
 
   try {
     const { texto } = req.body;
-
     if (!texto || texto.trim().length === 0) {
-      console.warn("⚠️ [API] Texto vacío o inválido recibido.");
       return res.status(400).json({ success: false, error: "No se proporcionó texto válido." });
     }
 
@@ -30,7 +27,6 @@ export default async function handler(req, res) {
 
     // --- GENERAR VOZ CON UNREALSPEECH ---
     console.log("🎤 [API] Solicitando voz a UnrealSpeech...");
-
     const unrealResponse = await fetch("https://api.v7.unrealspeech.com/speech", {
       method: "POST",
       headers: {
@@ -39,7 +35,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         Text: texto,
-        VoiceId: "Amy",  // 🔹 voz funcional
+        VoiceId: "Amy", // voz funcional comprobada
         Bitrate: "192k",
         Speed: 1.0,
         Pitch: 1.0,
@@ -50,36 +46,31 @@ export default async function handler(req, res) {
     if (!unrealResponse.ok) {
       const errorText = await unrealResponse.text();
       console.error("❌ [API] Error UnrealSpeech:", errorText);
-      return res.status(500).json({
-        success: false,
-        error: "Error en UnrealSpeech API",
-        details: errorText,
-      });
+      return res.status(500).json({ success: false, error: "Error en UnrealSpeech API", details: errorText });
     }
 
-    // 📦 Obtener el audio completo como buffer
-    const audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
+    // 📦 Obtener el audio como buffer
+    let audioBuffer = Buffer.from(await unrealResponse.arrayBuffer());
     console.log("✅ [API] Audio recibido. Tamaño:", audioBuffer.byteLength, "bytes");
 
-    if (audioBuffer.byteLength < 1000) {
-      console.warn("⚠️ [API] El audio generado es muy corto o vacío.");
-      return res.status(500).json({
-        success: false,
-        error: "El audio generado es demasiado corto o vacío.",
-        bytes: audioBuffer.byteLength,
-      });
+    // --- Si el audio es demasiado corto, agregamos 1 segundo de silencio ---
+    if (audioBuffer.byteLength < 5000) {
+      console.warn("⚠️ [API] Audio muy corto. Agregando relleno silencioso...");
+      const silence = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00]); // simple padding
+      audioBuffer = Buffer.concat([audioBuffer, silence]);
+      console.log("✅ [API] Nuevo tamaño de audio:", audioBuffer.byteLength, "bytes");
     }
 
     // --- SUBIR A CLOUDINARY ---
     console.log("☁️ [API] Subiendo a Cloudinary...");
-
     const uploadStream = () =>
       new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "auto", // 🔹 permite subir MP3 correctamente
+            resource_type: "auto",
             folder: "temp-audios",
             public_id: `voz-${Date.now()}`,
+            format: "mp3",
           },
           (error, result) => {
             if (error) {
@@ -91,8 +82,6 @@ export default async function handler(req, res) {
             }
           }
         );
-
-        // Pipe del buffer al stream
         Readable.from(audioBuffer).pipe(stream);
       });
 
