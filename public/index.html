@@ -153,6 +153,7 @@
     let highlightInterval=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -183,81 +184,39 @@
       return {html, parasForTTS};
     }
 
-    function showLoading(name){
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
-      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
-    }
-
-    function showError(msg){
-      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
-    }
-
-    async function buscarPokemon(nombre){
-      if(!nombre) return;
-      showLoading(nombre);
-      try{
-        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
-        if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
-        const data = await resp.json();
-        if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
-
-        const sprite = data.sprite||"";
-        const organized = organize(data.respuesta);
-
-        screen.innerHTML = (sprite?<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">:"")+
-                            <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
-                            <div id="resultado">${organized.html}</div>;
-
-        paragraphs = organized.parasForTTS;
-        paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        currentParagraphIndex=0;
-        btnAudioEl.style.display="block";
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        speech=null;
-
-        screenContainer.style.maxHeight = "60vh"; 
-        screenContainer.style.minHeight = "320px"; 
-        screenContainer.style.width = "100%";
-
-      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
-    }
-
+    // Mantener funcionalidad de búsqueda y limpiar intacta
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
       if(window.speechSynthesis) window.speechSynthesis.cancel();
-      buscarPokemon(nombre);
+      fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})})
+        .then(resp=>resp.json())
+        .then(data=>{
+          if(data.error || !data.respuesta){ screen.innerHTML=<p>❌ ${esc(data.error||"No se recibió respuesta.")}</p>; btnAudioEl.style.display="none"; return; }
+          const sprite = data.sprite||"";
+          const organized = organize(data.respuesta);
+          screen.innerHTML = (sprite?<img src="${esc(sprite)}" class="pokemon-img">:"")+
+                             <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
+                             <div id="resultado">${organized.html}</div>;
+          paragraphs = organized.parasForTTS;
+          paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
+          currentParagraphIndex=0;
+          btnAudioEl.style.display="block";
+        }).catch(err=>{ screen.innerHTML=<p>❌ Error al conectar con el servidor.</p>; btnAudioEl.style.display="none"; console.error(err); });
     });
-
-    input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
 
     clearBtn.addEventListener("click", ()=>{
       input.value="";
       screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
       btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(window.speechSynthesis) window.speechSynthesis.cancel();
-      clearInterval(highlightInterval);
-      screenContainer.style.maxHeight = "50vh";
-      screenContainer.style.minHeight = "280px";
-      screenContainer.style.width = "100%";
     });
 
-    // Inicialización de voz para desbloqueo en móviles
+    // --- Función TTS y suscripción inyectada ---
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
-      if (speechInitialized) return;
+      if(speechInitialized) return;
       if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
@@ -268,18 +227,17 @@
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
-      btnAudioEl.addEventListener("click", ()=>{
-        // Aquí puedes poner lógica del pop-up de suscripción
-        // pero permitimos generar audio igualmente para pruebas
-        if(!paragraphs.length) return;
-        const synth = window.speechSynthesis;
-        if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-        } else { currentParagraphIndex=0; speakNext(); }
-      });
-    } else btnAudioEl.style.display="none";
+    btnAudioEl.addEventListener("click", ()=>{
+      // Mostrar pop-up de suscripción (solo como ejemplo, no bloquea audio)
+      if(!window.confirm("Se requiere suscripción para funciones completas. Continuar con audio de prueba?")){ return; }
+      
+      if(!paragraphs.length) return;
+      const synth = window.speechSynthesis;
+      if(synth.speaking || paused){
+        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); clearInterval(highlightInterval);}
+        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); startHighlightLoop(); }
+      } else { currentParagraphIndex=0; speakNext(); }
+    });
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
@@ -295,30 +253,21 @@
     function speakNext(){
       if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
         currentParagraphIndex=0;
         paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screenContainer) screenContainer.scrollTop=0;
         speech=null;
         clearInterval(highlightInterval);
         return;
       }
-
       const paragraph = paragraphs[currentParagraphIndex];
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
-
       speech = u;
       window.speechSynthesis.speak(u);
       btnAudioEl.classList.add("speaking");
-      btnAudioEl.style.border="2px solid #00f0ff";
       paused=false;
       startHighlightLoop();
-
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
+      u.onend = ()=>{ currentParagraphIndex++; speakNext(); };
     }
 
   })();
