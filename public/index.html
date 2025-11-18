@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0;
+      margin:6px 0; /* Más cerca de los botones */
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -125,7 +125,7 @@
         <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
 
-      <button id="btnAudio">🔊 Leer descripción Pokémon</button>
+      <button id="btnAudio">🔊 Leer</button>
 
       <div class="controls">
         <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
@@ -139,10 +139,6 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- PayPal SDK -->
-  <script src="https://www.paypal.com/sdk/js?client-id=TU_CLIENT_ID_AQUI&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
-
-  <!-- Funcionalidad Pokémon y voz -->
   <script>
   (function(){
     const input = document.getElementById('pokemonInput');
@@ -155,9 +151,9 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
-    let userHasPaid = false; // ⚡ Verificación de suscripción
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -183,14 +179,14 @@
       });
       const out=[];
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=><p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>).join("");
+      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
       return {html, parasForTTS};
     }
 
     function showLoading(name){
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
-      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
+      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
@@ -198,7 +194,7 @@
     }
 
     function showError(msg){
-      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
+      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
@@ -217,9 +213,9 @@
         const sprite = data.sprite||"";
         const organized = organize(data.respuesta);
 
-        screen.innerHTML = (sprite?<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">:"")+
-                            <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
-                            <div id="resultado">${organized.html}</div>;
+        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+
+                            `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+
+                            `<div id="resultado">${organized.html}</div>`;
 
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
@@ -228,9 +224,12 @@
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
+
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
+
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
@@ -245,7 +244,7 @@
 
     clearBtn.addEventListener("click", ()=>{
       input.value="";
-      screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
+      screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
@@ -257,7 +256,7 @@
       screenContainer.style.width = "100%";
     });
 
-    // 🔊 Inicialización de voz
+    // 🔊 Inicialización de voz forzada para AppCreator24
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
@@ -265,61 +264,23 @@
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel(); // Cancelamos inmediatamente, solo es para desbloquear
         speechInitialized = true;
+        console.log("SpeechSynthesis inicializado para AppCreator24");
       }
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    // Función de PayPal
-    function showPayPalPopup(){
-      const popup = document.createElement("div");
-      popup.style.position="fixed";
-      popup.style.top="0";
-      popup.style.left="0";
-      popup.style.width="100%";
-      popup.style.height="100%";
-      popup.style.background="rgba(0,0,0,0.7)";
-      popup.style.display="flex";
-      popup.style.alignItems="center";
-      popup.style.justifyContent="center";
-      popup.style.zIndex="9999";
-      popup.innerHTML = `<div style="background:#111; padding:20px; border-radius:10px; max-width:350px; width:90%; text-align:center;">
-        <h3 style="color:#ffcc00;">Versión Premium</h3>
-        <p>Paga $3 y desbloquea la voz para todo el mes.</p>
-        <div id="paypal-button-container"></div>
-        <button id="closePopup" style="margin-top:15px;padding:10px 15px;border:none;border-radius:8px;background:#d62828;color:#fff;cursor:pointer;font-weight:bold;">Cerrar</button>
-      </div>`;
-      document.body.appendChild(popup);
-
-      // Render PayPal button
-      paypal.Buttons({
-        style:{ shape:'rect', color:'gold', layout:'vertical', label:'subscribe' },
-        createSubscription: function(data, actions){ return actions.subscription.create({ plan_id:'TU_PLAN_ID_AQUI' }); },
-        onApprove: function(data, actions){
-          userHasPaid = true;
-          alert("¡Pago exitoso! Ahora puedes usar la voz.");
-          popup.remove();
-        }
-      }).render('#paypal-button-container');
-
-      document.getElementById("closePopup").addEventListener("click", ()=>popup.remove());
-    }
-
-    // Botón Leer con verificación de pago
-    btnAudioEl.addEventListener("click", ()=>{
-      if(!paragraphs.length) return;
-      if(!userHasPaid){
-        showPayPalPopup();
-        return;
-      }
-
-      const synth = window.speechSynthesis;
-      if(synth.speaking || paused){
-        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-      } else { currentParagraphIndex=0; speakNext(); }
-    });
+    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
+      btnAudioEl.addEventListener("click", ()=>{
+        if(!paragraphs.length) return;
+        const synth = window.speechSynthesis;
+        if(synth.speaking || paused){
+          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+        } else { currentParagraphIndex=0; speakNext(); }
+      });
+    } else btnAudioEl.style.display="none";
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
@@ -343,15 +304,18 @@
         clearInterval(highlightInterval);
         return;
       }
+
       const paragraph = paragraphs[currentParagraphIndex];
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
+
       speech = u;
       window.speechSynthesis.speak(u);
       btnAudioEl.classList.add("speaking");
       btnAudioEl.style.border="2px solid #00f0ff";
       paused=false;
       startHighlightLoop();
+
       u.onend = ()=>{
         currentParagraphIndex++;
         speakNext();
