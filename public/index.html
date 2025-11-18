@@ -33,6 +33,32 @@
       font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; border: 1px solid #333;
     }
     audio { margin-top: 20px; width: 100%; max-width: 500px; outline: none; }
+
+    /* === MODAL PREMIUM === */
+    #premiumModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(2px);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    #premiumBox {
+      background: #1a1a1a;
+      padding: 20px;
+      width: 90%;
+      max-width: 350px;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid #444;
+    }
+    #premiumBox h2 { color: #00c3ff; margin-top: 0; }
+    #cerrarModal {
+      margin-top: 15px;
+      background-color: #ff3333;
+    }
   </style>
 </head>
 <body>
@@ -46,6 +72,55 @@
 
   <audio id="audioPlayer" controls></audio>
   <div id="debug">Zona de depuración activa...</div>
+
+  <!-- === MODAL PREMIUM === -->
+  <div id="premiumModal">
+    <div id="premiumBox">
+      <h2>⭐ Versión Premium</h2>
+      <p>Para usar la función de voz, activa la suscripción mensual.</p>
+      <p><strong>Precio: $3 USD / mes</strong></p>
+
+      <!-- Contenedor del botón PayPal -->
+      <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
+
+      <button id="cerrarModal">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- PayPal SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
+
+  <script>
+    // === ABRIR MODAL AL PRESIONAR EL BOTÓN PREMIUM ===
+    document.getElementById("leerBtn").addEventListener("click", () => {
+      document.getElementById("premiumModal").style.display = "flex";
+    });
+
+    // === CERRAR MODAL ===
+    document.getElementById("cerrarModal").addEventListener("click", () => {
+      document.getElementById("premiumModal").style.display = "none";
+    });
+
+    // === BOTÓN PAYPAL ===
+    paypal.Buttons({
+      style: {
+        shape: 'rect',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'subscribe'
+      },
+      createSubscription: function(data, actions) {
+        return actions.subscription.create({
+          plan_id: 'P-08M86817PK1059649NEOAHEY'
+        });
+      },
+      onApprove: function(data, actions) {
+        alert("¡Suscripción activada! ID: " + data.subscriptionID);
+        document.getElementById("premiumModal").style.display = "none";
+        // Aquí luego se marcará al usuario como PREMIUM.
+      }
+    }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
+  </script>
 
   <!-- Conecta el frontend audio.js -->
   <script src="./audio.js"></script>
