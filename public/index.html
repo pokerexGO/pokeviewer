@@ -28,48 +28,46 @@
       border-radius: 8px; color: white; cursor: pointer; font-weight: bold; transition: 0.3s;
     }
     button:hover { background: #00b7ff; transform: scale(1.05); }
-
     #debug {
       margin-top: 25px; width: 95%; max-width: 600px; background: #111;
       padding: 12px; border-radius: 10px; height: 300px; overflow-y: auto;
       font-family: monospace; font-size: 0.9rem; white-space: pre-wrap; border: 1px solid #333;
     }
-
     audio { margin-top: 20px; width: 100%; max-width: 500px; outline: none; }
 
     /* POPUP PREMIUM */
-    #premiumPopup {
+    #premiumModal {
       display: none;
       position: fixed;
-      top: 0; left: 0;
+      z-index: 9999;
+      left: 0; top: 0;
       width: 100%; height: 100%;
       background: rgba(0,0,0,0.8);
-      backdrop-filter: blur(3px);
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
+      display: flex; justify-content: center; align-items: center;
     }
-    #premiumContent {
-      background: #1a1a1a;
+    .modal-content {
+      background: #1c1c1c;
       padding: 25px;
       border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
       text-align: center;
-      width: 85%; max-width: 400px;
-      border: 1px solid #00b7ff;
     }
-    #closePopup {
-      background: red;
-      margin-top: 15px;
+    .modal-content h2 {
+      color: #00c3ff;
+      margin-bottom: 15px;
+    }
+    .closeModal {
+      margin-top: 10px;
+      background: #444;
     }
   </style>
 </head>
-
 <body>
 
   <h1>🎧 PokeAsistente - TTS Debug</h1>
 
   <textarea id="texto" placeholder="Escribe el texto que deseas convertir a voz..."></textarea>
-
   <div>
     <button id="leerBtn">🔊 Leer descripción Pokémon</button>
     <button id="probarBtn">🧪 Probar TTS directo</button>
@@ -79,74 +77,67 @@
   <div id="debug">Zona de depuración activa...</div>
 
   <!-- POPUP PREMIUM -->
-  <div id="premiumPopup">
-    <div id="premiumContent">
-      <h2>🔒 Función Premium</h2>
-      <p>Para usar la voz ilimitada debes activar la suscripción mensual de <b>$3</b>.</p>
+  <div id="premiumModal">
+    <div class="modal-content">
+      <h2>⚡ Función Premium</h2>
+      <p>Para escuchar la descripción del Pokémon, necesitas una suscripción de <b>$3 mensuales</b>.</p>
 
-      <div id="paypal-button-container"></div>
+      <!-- PayPal Button Container -->
+      <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
 
-      <button id="closePopup">Cerrar</button>
+      <button class="closeModal" onclick="cerrarPremium()">Cerrar</button>
     </div>
   </div>
 
-  <!-- SDK DE PAYPAL -->
-  <script src="https://www.paypal.com/sdk/js?client-id=TU_CLIENT_ID_PAYPAL&vault=true&intent=subscription"></script>
+  <!-- PAYPAL SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
-  <!-- FRONTEND JS TTS -->
-  <script src="./audio.js"></script>
+  <!-- SCRIPT PAYPAL -->
+  <script>
+    paypal.Buttons({
+      style: {
+        shape: 'rect',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'subscribe'
+      },
+      createSubscription: function(data, actions) {
+        return actions.subscription.create({
+          plan_id: 'P-08M86817PK1059649NEOAHEY'
+        });
+      },
+      onApprove: function(data, actions) {
+        alert("✔ Suscripción activada correctamente");
+        localStorage.setItem("userPaid", "true");
+        cerrarPremium();
+      }
+    }).render("#paypal-button-container-P-08M86817PK1059649NEOAHEY");
+  </script>
 
   <script>
-    /** 🔐 ESTADO DE SUSCRIPCIÓN (SOLO PARA PRUEBAS)
-        Luego esto vendrá desde Supabase o tu Backend. */
-    let isSubscribed = false;
+    let userHasPaid = localStorage.getItem("userPaid") === "true";
 
-    const leerBtn = document.getElementById("leerBtn");
-    const premiumPopup = document.getElementById("premiumPopup");
-    const closePopup = document.getElementById("closePopup");
+    function abrirPremium() {
+      document.getElementById("premiumModal").style.display = "flex";
+    }
+    function cerrarPremium() {
+      document.getElementById("premiumModal").style.display = "none";
+    }
 
-    // Si no está suscrito → mostrar popup y NO generar audio
-    leerBtn.addEventListener("click", () => {
-      if (!isSubscribed) {
-        premiumPopup.style.display = "flex";
+    // BLOQUEO DEL BOTÓN DE VOZ
+    document.getElementById("leerBtn").addEventListener("click", () => {
+      if (!userHasPaid) {
+        abrirPremium();
         return; // ⛔ NO GENERA AUDIO
       }
 
-      // SI ESTA SUSCRITO → LLAMA A LA FUNCIÓN DE TU audio.js
-      generarTTS();
+      // SI YA PAGÓ → GENERA AUDIO NORMAL
+      window.generarAudioDesdeTexto();
     });
-
-    // Botón cerrar popup
-    closePopup.onclick = () => premiumPopup.style.display = "none";
-
-    // Integración de PayPal
-    paypal.Buttons({
-      style: {
-        shape: "rect",
-        color: "gold",
-        layout: "vertical",
-        label: "subscribe",
-      },
-      createSubscription: (data, actions) => {
-        return actions.subscription.create({
-          plan_id: "TU_PLAN_ID_PAYPAL"
-        });
-      },
-      onApprove: (data) => {
-        alert("✅ Suscripción activada correctamente");
-
-        // Activar suscripción
-        isSubscribed = true;
-
-        premiumPopup.style.display = "none";
-      },
-    }).render("#paypal-button-container");
-
-    // Función real del TTS
-    function generarTTS() {
-      document.getElementById("probarBtn").click();
-    }
   </script>
+
+  <!-- TU audio.js -->
+  <script src="./audio.js"></script>
 
 </body>
 </html>
