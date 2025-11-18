@@ -73,17 +73,9 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0;
-      width:100%;
-      padding:14px;
-      border-radius:10px;
-      background:#222;
-      border:2px solid transparent;
-      color:#fff;
-      cursor:pointer;
-      font-weight:700;
-      font-size:1.05rem;
-      display:none;
+      margin:6px 0; width:100%; padding:14px;
+      border-radius:10px; background:#222; border:2px solid transparent;
+      color:#fff; cursor:pointer; font-weight:700; font-size:1.05rem; display:none;
       transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
     }
     #btnAudio.speaking {
@@ -95,10 +87,7 @@
       100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
-    .rayo {
-      position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
-      animation:caer 1.1s linear infinite;
-    }
+    .rayo { position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6; animation:caer 1.1s linear infinite; }
     .rayo.r1 { left:14%; animation-delay:0s; }
     .rayo.r2 { left:50%; animation-delay:0.35s; }
     .rayo.r3 { left:86%; animation-delay:0.65s; }
@@ -139,6 +128,7 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
+  <script src="./audio.js"></script>
   <script>
   (function(){
     const input = document.getElementById('pokemonInput');
@@ -217,7 +207,6 @@
                             <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
                             <div id="resultado">${organized.html}</div>;
 
-        // ✅ Función TTS y suscripción integrada
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         currentParagraphIndex=0;
@@ -256,7 +245,7 @@
       screenContainer.style.width = "100%";
     });
 
-    // 🔊 Inicialización TTS y suscripción
+    // === Integración robusta TTS y suscripción ===
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
@@ -264,27 +253,26 @@
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
-        window.speechSynthesis.cancel(); // desbloqueo inicial
+        window.speechSynthesis.cancel();
         speechInitialized = true;
         console.log("SpeechSynthesis inicializado");
       }
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
-      btnAudioEl.addEventListener("click", ()=>{
-        if(!paragraphs.length) return;
+    btnAudioEl.addEventListener("click", ()=>{
+      if(!paragraphs.length) return;
+      const synth = window.speechSynthesis;
+      if(!synth) return;
 
-        // Pop-up suscripción (simulado)
-        if(!confirm("Suscripción requerida para continuar leyendo. ¿Deseas continuar?")) return;
+      // Simulación pop-up de suscripción
+      console.log("Simulando pop-up de suscripción (permitiendo leer)");
 
-        const synth = window.speechSynthesis;
-        if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-        } else { currentParagraphIndex=0; speakNext(); }
-      });
-    } else btnAudioEl.style.display="none";
+      if(synth.speaking || paused){
+        if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
+        else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
+      } else { currentParagraphIndex=0; speakNext(); }
+    });
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
