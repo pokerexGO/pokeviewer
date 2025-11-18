@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PokeAsistente - TTS</title>
-
   <style>
     body {
       background: #0a0a0a;
@@ -35,36 +34,33 @@
     }
     audio { margin-top: 20px; width: 100%; max-width: 500px; outline: none; }
 
-    /* POPUP PREMIUM */
-    #premiumModal {
+    /* POPUP */
+    #popupPago {
       display: none;
       position: fixed;
-      z-index: 9999;
-      left: 0; top: 0;
+      top: 0; left: 0;
       width: 100%; height: 100%;
       background: rgba(0,0,0,0.8);
-      display: flex; justify-content: center; align-items: center;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
     }
-    .modal-content {
-      background: #1c1c1c;
+    #popupContent {
+      background: #1a1a1a;
       padding: 25px;
       border-radius: 12px;
       width: 90%;
-      max-width: 400px;
+      max-width: 360px;
       text-align: center;
+      border: 1px solid #444;
     }
-    .modal-content h2 {
-      color: #00c3ff;
-      margin-bottom: 15px;
-    }
-    .closeModal {
+    #cerrarPopup {
       margin-top: 10px;
-      background: #444;
+      background: red;
     }
   </style>
 </head>
 <body>
-
   <h1>🎧 PokeAsistente - TTS Debug</h1>
 
   <textarea id="texto" placeholder="Escribe el texto que deseas convertir a voz..."></textarea>
@@ -76,24 +72,26 @@
   <audio id="audioPlayer" controls></audio>
   <div id="debug">Zona de depuración activa...</div>
 
-  <!-- POPUP PREMIUM -->
-  <div id="premiumModal">
-    <div class="modal-content">
-      <h2>⚡ Función Premium</h2>
-      <p>Para escuchar la descripción del Pokémon, necesitas una suscripción de <b>$3 mensuales</b>.</p>
+  <!-- POPUP CON BOTÓN PAYPAL -->
+  <div id="popupPago">
+    <div id="popupContent">
+      <h2>🔥 Versión Premium de Voz</h2>
+      <p>Suscríbete por solo <b>$3/mes</b> y usa la voz ilimitadamente.</p>
 
-      <!-- PayPal Button Container -->
+      <!-- BOTÓN DE PAYPAL ORIGINAL -->
       <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
 
-      <button class="closeModal" onclick="cerrarPremium()">Cerrar</button>
+      <button id="cerrarPopup">Cerrar</button>
     </div>
   </div>
 
-  <!-- PAYPAL SDK -->
+  <!-- PayPal SDK -->
   <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
-  <!-- SCRIPT PAYPAL -->
   <script>
+    let usuarioSuscrito = false; // POR AHORA manual hasta que añadamos backend
+
+    // Render del botón PayPal dentro del POPUP
     paypal.Buttons({
       style: {
         shape: 'rect',
@@ -107,37 +105,28 @@
         });
       },
       onApprove: function(data, actions) {
-        alert("✔ Suscripción activada correctamente");
-        localStorage.setItem("userPaid", "true");
-        cerrarPremium();
+        usuarioSuscrito = true;
+        alert("Suscripción activada");
+        document.getElementById("popupPago").style.display = "none";
       }
-    }).render("#paypal-button-container-P-08M86817PK1059649NEOAHEY");
-  </script>
+    }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
 
-  <script>
-    let userHasPaid = localStorage.getItem("userPaid") === "true";
-
-    function abrirPremium() {
-      document.getElementById("premiumModal").style.display = "flex";
-    }
-    function cerrarPremium() {
-      document.getElementById("premiumModal").style.display = "none";
-    }
-
-    // BLOQUEO DEL BOTÓN DE VOZ
+    // BOTÓN PRINCIPAL
     document.getElementById("leerBtn").addEventListener("click", () => {
-      if (!userHasPaid) {
-        abrirPremium();
-        return; // ⛔ NO GENERA AUDIO
+      if (!usuarioSuscrito) {
+        document.getElementById("popupPago").style.display = "flex";
+        return;
       }
+      window.realLeerDescripcionPokemon(); // función original del audio.js
+    });
 
-      // SI YA PAGÓ → GENERA AUDIO NORMAL
-      window.generarAudioDesdeTexto();
+    // Cerrar popup
+    document.getElementById("cerrarPopup").addEventListener("click", () => {
+      document.getElementById("popupPago").style.display = "none";
     });
   </script>
 
-  <!-- TU audio.js -->
+  <!-- Tu audio.js -->
   <script src="./audio.js"></script>
-
 </body>
 </html>
