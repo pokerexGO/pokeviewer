@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; 
+      margin:6px 0; /* Más cerca de los botones */
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -148,14 +148,14 @@
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
-    // Variables para TTS
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
 
-    // Funciones de escape y organización de texto
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
+
     function organize(text){
       const paras = splitText(text);
       const sections = {};
@@ -179,15 +179,14 @@
       });
       const out=[];
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=><p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>).join("");
+      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
       return {html, parasForTTS};
     }
 
-    // Funciones de carga y error
     function showLoading(name){
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
-      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
+      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
@@ -195,14 +194,13 @@
     }
 
     function showError(msg){
-      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
+      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       clearInterval(highlightInterval);
     }
 
-    // Función de búsqueda Pokémon usando API original
     async function buscarPokemon(nombre){
       if(!nombre) return;
       showLoading(nombre);
@@ -215,9 +213,9 @@
         const sprite = data.sprite||"";
         const organized = organize(data.respuesta);
 
-        screen.innerHTML = (sprite?<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">:"")+
-                            <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
-                            <div id="resultado">${organized.html}</div>;
+        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+
+                            `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+
+                            `<div id="resultado">${organized.html}</div>`;
 
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
@@ -227,6 +225,7 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        // Ajuste cuadro IA más grande hacia abajo sin empujar título
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -234,7 +233,6 @@
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
-    // Eventos de búsqueda y limpieza
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
@@ -246,7 +244,7 @@
 
     clearBtn.addEventListener("click", ()=>{
       input.value="";
-      screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
+      screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
@@ -258,7 +256,7 @@
       screenContainer.style.width = "100%";
     });
 
-    // Inicialización de SpeechSynthesis para desbloqueo en navegadores
+    // 🔊 Inicialización de voz forzada para AppCreator24
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
@@ -266,20 +264,16 @@
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel(); // Cancelamos inmediatamente, solo es para desbloquear
         speechInitialized = true;
+        console.log("SpeechSynthesis inicializado para AppCreator24");
       }
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    // Función TTS integrada al botón Leer
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
       btnAudioEl.addEventListener("click", ()=>{
         if(!paragraphs.length) return;
-
-        // Aquí puedes integrar la verificación de suscripción si quieres
-        // Pero para pruebas, permitimos la lectura siempre
-
         const synth = window.speechSynthesis;
         if(synth.speaking || paused){
           if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
@@ -314,6 +308,7 @@
       const paragraph = paragraphs[currentParagraphIndex];
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
+
       speech = u;
       window.speechSynthesis.speak(u);
       btnAudioEl.classList.add("speaking");
