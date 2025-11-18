@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; 
+      margin:6px 0;
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -148,14 +148,14 @@
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
 
-    // Variables para TTS
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
 
-    // Funciones de escape y organización de texto
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
+
     function organize(text){
       const paras = splitText(text);
       const sections = {};
@@ -184,7 +184,6 @@
       return {html, parasForTTS};
     }
 
-    // Funciones de carga y error
     function showLoading(name){
       if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
@@ -202,7 +201,6 @@
       clearInterval(highlightInterval);
     }
 
-    // Función de búsqueda Pokémon usando API original
     async function buscarPokemon(nombre){
       if(!nombre) return;
       showLoading(nombre);
@@ -219,6 +217,7 @@
                             <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
                             <div id="resultado">${organized.html}</div>;
 
+        // ✅ Función TTS y suscripción integrada
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
         currentParagraphIndex=0;
@@ -234,7 +233,6 @@
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
-    // Eventos de búsqueda y limpieza
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
@@ -258,7 +256,7 @@
       screenContainer.style.width = "100%";
     });
 
-    // Inicialización de SpeechSynthesis para desbloqueo en navegadores
+    // 🔊 Inicialización TTS y suscripción
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
@@ -266,19 +264,19 @@
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
-        window.speechSynthesis.cancel();
+        window.speechSynthesis.cancel(); // desbloqueo inicial
         speechInitialized = true;
+        console.log("SpeechSynthesis inicializado");
       }
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    // Función TTS integrada al botón Leer
     if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
       btnAudioEl.addEventListener("click", ()=>{
         if(!paragraphs.length) return;
 
-        // Aquí puedes integrar la verificación de suscripción si quieres
-        // Pero para pruebas, permitimos la lectura siempre
+        // Pop-up suscripción (simulado)
+        if(!confirm("Suscripción requerida para continuar leyendo. ¿Deseas continuar?")) return;
 
         const synth = window.speechSynthesis;
         if(synth.speaking || paused){
@@ -314,6 +312,7 @@
       const paragraph = paragraphs[currentParagraphIndex];
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
+
       speech = u;
       window.speechSynthesis.speak(u);
       btnAudioEl.classList.add("speaking");
