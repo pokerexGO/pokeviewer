@@ -73,7 +73,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; /* Más cerca de los botones */
+      margin:6px 0;
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -139,190 +139,48 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
+  <!-- Frontend TTS y suscripción -->
+  <script src="./audio.js"></script>
   <script>
-  (function(){
-    const input = document.getElementById('pokemonInput');
-    const buscarBtn = document.getElementById('buscarBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const screen = document.getElementById('screen');
-    const screenContainer = document.getElementById('screenContainer');
-    const btnAudioEl = document.getElementById('btnAudio');
+    // Integración de suscripción con PayPal en el botón de leer
+    const btnAudio = document.getElementById("btnAudio");
 
-    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
-    let speech=null, paused=false;
-    let highlightInterval=null;
+    btnAudio.addEventListener("click", (e) => {
+      // Mostrar popup de suscripción
+      const suscripcionHTML = `
+        <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;z-index:9999;">
+          <div style="background:#111;padding:20px;border-radius:12px;max-width:320px;text-align:center;color:#fff;">
+            <h3>Versión Premium</h3>
+            <p>Suscríbete por $3/mes para usar la función de voz.</p>
+            <div id="paypal-button-container"></div>
+            <button id="cerrarPopup" style="margin-top:12px;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;background:#d62828;color:#fff;font-weight:700;">Cerrar</button>
+          </div>
+        </div>`;
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = suscripcionHTML;
+      document.body.appendChild(tempDiv);
 
-    function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-
-    function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
-
-    function organize(text){
-      const paras = splitText(text);
-      const sections = {};
-      paras.forEach(p=>{
-        const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
-        if(m){
-          let tag = m[1].trim();
-          if(tag.toLowerCase().includes("ataques recomendados")) tag="Ataques";
-          const content = m[2].trim();
-          if(!sections[tag]) sections[tag]=[];
-          sections[tag].push(content);
-        } else {
-          if(!sections["Información"]) sections["Información"]=[]; 
-          sections["Información"].push(p);
-        }
+      document.getElementById("cerrarPopup").addEventListener("click", () => {
+        tempDiv.remove();
       });
-      if(!sections["Información"] || sections["Información"].length===0) sections["Información"]=["Información no disponible"];
-      Object.keys(sections).forEach(tag=>{
-        sections[tag] = sections[tag].filter(line=>line.trim());
-        if(sections[tag].length===0) sections[tag]=["Información no disponible"];
-      });
-      const out=[];
-      Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
-      const parasForTTS = out.map(s=>s.tag+": "+s.text);
-      return {html, parasForTTS};
-    }
 
-    function showLoading(name){
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
-      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
-    }
-
-    function showError(msg){
-      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
-    }
-
-    async function buscarPokemon(nombre){
-      if(!nombre) return;
-      showLoading(nombre);
-      try{
-        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
-        if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
-        const data = await resp.json();
-        if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
-
-        const sprite = data.sprite||"";
-        const organized = organize(data.respuesta);
-
-        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+
-                            `<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+
-                            `<div id="resultado">${organized.html}</div>`;
-
-        paragraphs = organized.parasForTTS;
-        paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        currentParagraphIndex=0;
-        btnAudioEl.style.display="block";
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        speech=null;
-
-        // Ajuste cuadro IA más grande hacia abajo sin empujar título
-        screenContainer.style.maxHeight = "60vh"; 
-        screenContainer.style.minHeight = "320px"; 
-        screenContainer.style.width = "100%";
-
-      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
-    }
-
-    buscarBtn.addEventListener("click", ()=>{
-      const nombre=(input.value||"").trim().toLowerCase();
-      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
-      buscarPokemon(nombre);
-    });
-
-    input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
-
-    clearBtn.addEventListener("click", ()=>{
-      input.value="";
-      screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
-      clearInterval(highlightInterval);
-      screenContainer.style.maxHeight = "50vh";
-      screenContainer.style.minHeight = "280px";
-      screenContainer.style.width = "100%";
-    });
-
-    // 🔊 Inicialización de voz forzada para AppCreator24
-    let speechInitialized = false;
-    document.body.addEventListener("click", function initDummySpeech() {
-      if (speechInitialized) return;
-      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
-        const u = new SpeechSynthesisUtterance("");
-        u.lang = "es-ES";
-        window.speechSynthesis.speak(u);
-        window.speechSynthesis.cancel(); // Cancelamos inmediatamente, solo es para desbloquear
-        speechInitialized = true;
-        console.log("SpeechSynthesis inicializado para AppCreator24");
-      }
-      document.body.removeEventListener("click", initDummySpeech);
-    });
-
-    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
-      btnAudioEl.addEventListener("click", ()=>{
-        if(!paragraphs.length) return;
-        const synth = window.speechSynthesis;
-        if(synth.speaking || paused){
-          if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
-          else { synth.resume(); paused=false; btnAudioEl.classList.add("speaking"); btnAudioEl.style.border="2px solid #00f0ff"; startHighlightLoop(); }
-        } else { currentParagraphIndex=0; speakNext(); }
-      });
-    } else btnAudioEl.style.display="none";
-
-    function startHighlightLoop(){
-      clearInterval(highlightInterval);
-      highlightInterval = setInterval(()=>{
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(currentParagraphIndex<paragraphElements.length) {
-          paragraphElements[currentParagraphIndex].classList.add("highlight");
-          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
-        }
-      },50);
-    }
-
-    function speakNext(){
-      if(currentParagraphIndex>=paragraphs.length){
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        currentParagraphIndex=0;
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screenContainer) screenContainer.scrollTop=0;
-        speech=null;
-        clearInterval(highlightInterval);
-        return;
+      // Aquí se puede inicializar el botón de PayPal si tienes plan_id
+      if(window.paypal){
+        paypal.Buttons({
+          style: { shape:'rect', color:'gold', layout:'vertical', label:'subscribe' },
+          createSubscription: function(data, actions){
+            return actions.subscription.create({ plan_id: 'P-XXXXXXXXXXXX' }); // <-- tu plan_id
+          },
+          onApprove: function(data, actions){
+            alert("¡Suscripción activada! ID: " + data.subscriptionID);
+            tempDiv.remove();
+            // Aquí puedes desbloquear la función TTS si quieres
+          }
+        }).render('#paypal-button-container');
       }
 
-      const paragraph = paragraphs[currentParagraphIndex];
-      const u = new SpeechSynthesisUtterance(paragraph);
-      u.lang='es-ES';
-
-      speech = u;
-      window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add("speaking");
-      btnAudioEl.style.border="2px solid #00f0ff";
-      paused=false;
-      startHighlightLoop();
-
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
-    }
-
-  })();
+      // *Nota:* La función de TTS se seguirá ejecutando aunque se muestre el popup para pruebas
+    });
   </script>
 </body>
 </html>
