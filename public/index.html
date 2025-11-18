@@ -110,18 +110,6 @@
       .screen-container { min-height:240px; max-height:55vh; width:100%; }
       input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
     }
-
-    /* Estilos popup suscripción */
-    #popupSub {
-      display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,0.85); justify-content:center; align-items:center;
-      z-index:9999; flex-direction:column;
-    }
-    #popupSubContent {
-      background:#111; padding:20px; border-radius:12px; text-align:center; max-width:320px; width:90%;
-    }
-    #popupSubContent h2{ margin-bottom:15px; color:var(--accent);}
-    #popupSubContent button { padding:10px 16px; margin-top:12px; border-radius:8px; cursor:pointer; border:none; background:var(--accent); color:#0d1117; font-weight:700;}
   </style>
 </head>
 <body>
@@ -151,20 +139,10 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- Popup de suscripción -->
-  <div id="popupSub">
-    <div id="popupSubContent">
-      <h2>Versión Premium</h2>
-      <p>Debes suscribirte por $3/mes para usar la voz.</p>
-      <!-- Contenedor PayPal -->
-      <div id="paypal-button-container"></div>
-      <button id="popupCloseBtn">Cerrar</button>
-    </div>
-  </div>
+  <!-- PayPal SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=TU_CLIENT_ID_AQUI&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
 
-  <!-- Conecta el frontend audio.js -->
-  <script src="./audio.js"></script>
-
+  <!-- Funcionalidad Pokémon y voz -->
   <script>
   (function(){
     const input = document.getElementById('pokemonInput');
@@ -177,16 +155,8 @@
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
+    let userHasPaid = false; // ⚡ Verificación de suscripción
 
-    // --- Popup suscripción ---
-    const popup = document.getElementById("popupSub");
-    const popupCloseBtn = document.getElementById("popupCloseBtn");
-    let hasPaid = false; // Aquí se debe controlar si el usuario ya pagó
-    popupCloseBtn.addEventListener("click", ()=>{ popup.style.display="none"; });
-
-    function showPopup(){ popup.style.display="flex"; }
-
-    // --- Funciones helper ---
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
@@ -258,12 +228,9 @@
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
-
-        // Ajuste cuadro IA más grande
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
-
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
@@ -290,7 +257,7 @@
       screenContainer.style.width = "100%";
     });
 
-    // Inicialización SpeechSynthesis
+    // 🔊 Inicialización de voz
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
@@ -300,18 +267,53 @@
         window.speechSynthesis.speak(u);
         window.speechSynthesis.cancel();
         speechInitialized = true;
-        console.log("SpeechSynthesis inicializado");
       }
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    // --- Botón Leer con verificación de pago ---
+    // Función de PayPal
+    function showPayPalPopup(){
+      const popup = document.createElement("div");
+      popup.style.position="fixed";
+      popup.style.top="0";
+      popup.style.left="0";
+      popup.style.width="100%";
+      popup.style.height="100%";
+      popup.style.background="rgba(0,0,0,0.7)";
+      popup.style.display="flex";
+      popup.style.alignItems="center";
+      popup.style.justifyContent="center";
+      popup.style.zIndex="9999";
+      popup.innerHTML = `<div style="background:#111; padding:20px; border-radius:10px; max-width:350px; width:90%; text-align:center;">
+        <h3 style="color:#ffcc00;">Versión Premium</h3>
+        <p>Paga $3 y desbloquea la voz para todo el mes.</p>
+        <div id="paypal-button-container"></div>
+        <button id="closePopup" style="margin-top:15px;padding:10px 15px;border:none;border-radius:8px;background:#d62828;color:#fff;cursor:pointer;font-weight:bold;">Cerrar</button>
+      </div>`;
+      document.body.appendChild(popup);
+
+      // Render PayPal button
+      paypal.Buttons({
+        style:{ shape:'rect', color:'gold', layout:'vertical', label:'subscribe' },
+        createSubscription: function(data, actions){ return actions.subscription.create({ plan_id:'TU_PLAN_ID_AQUI' }); },
+        onApprove: function(data, actions){
+          userHasPaid = true;
+          alert("¡Pago exitoso! Ahora puedes usar la voz.");
+          popup.remove();
+        }
+      }).render('#paypal-button-container');
+
+      document.getElementById("closePopup").addEventListener("click", ()=>popup.remove());
+    }
+
+    // Botón Leer con verificación de pago
     btnAudioEl.addEventListener("click", ()=>{
-      if(!hasPaid){
-        showPopup();
+      if(!paragraphs.length) return;
+      if(!userHasPaid){
+        showPayPalPopup();
         return;
       }
-      if(!paragraphs.length) return;
+
       const synth = window.speechSynthesis;
       if(synth.speaking || paused){
         if(!paused){ synth.pause(); paused=true; btnAudioEl.classList.remove("speaking"); btnAudioEl.style.border="2px solid transparent"; clearInterval(highlightInterval);}
@@ -341,44 +343,20 @@
         clearInterval(highlightInterval);
         return;
       }
-
       const paragraph = paragraphs[currentParagraphIndex];
       const u = new SpeechSynthesisUtterance(paragraph);
       u.lang='es-ES';
-
       speech = u;
       window.speechSynthesis.speak(u);
       btnAudioEl.classList.add("speaking");
       btnAudioEl.style.border="2px solid #00f0ff";
       paused=false;
       startHighlightLoop();
-
       u.onend = ()=>{
         currentParagraphIndex++;
         speakNext();
       };
     }
-
-    // --- Integración PayPal para suscripción ---
-    const PAYPAL_CLIENT_ID = "Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc";
-    const PLAN_ID = "P-08M86817PK1059649NEOAHEY";
-
-    const script = document.createElement("script");
-    script.src = https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&vault=true&intent=subscription;
-    script.onload = ()=>{
-      paypal.Buttons({
-        style:{shape:'rect', color:'gold', layout:'vertical', label:'subscribe'},
-        createSubscription: function(data, actions) {
-          return actions.subscription.create({ plan_id: PLAN_ID });
-        },
-        onApprove: function(data, actions) {
-          hasPaid = true;
-          popup.style.display="none";
-          alert("¡Suscripción activa! Ahora puedes usar la voz.");
-        }
-      }).render('#paypal-button-container');
-    };
-    document.body.appendChild(script);
 
   })();
   </script>
