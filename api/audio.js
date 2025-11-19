@@ -1,4 +1,52 @@
-<!DOCTYPE html>
+[21:00, 18/11/2025] Królestwo: <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PokeViewer</title>
+  <style>
+    :root{
+      --bg: #0d1117;
+      --card-red: #d62828;
+      --screen: #222;
+      --accent: #ffcc00;
+      --muted: #9aa4b2;
+      --text: #e6edf3;
+      --glass: rgba(255,255,255,0.02);
+      --border: #444;
+    }
+
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
+    body{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;}
+
+    .wrapper{ width:100%; max-width:380px; }
+
+    .title-row { display:flex; align-items:center; justify-content:center; gap:12…
+[21:09, 18/11/2025] Królestwo: <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PokeViewer</title>
+  <style>
+    :root{
+      --bg: #0d1117;
+      --card-red: #d62828;
+      --screen: #222;
+      --accent: #ffcc00;
+      --muted: #9aa4b2;
+      --text: #e6edf3;
+      --glass: rgba(255,255,255,0.02);
+      --border: #444;
+    }
+
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden;}
+    body{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;}
+
+    .wrapper{ width:100%; max-width:380px; }
+
+    .title-row { display:flex; align-items:center; justify-content:center; gap:12…
+[21:46, 18/11/2025] Królestwo: <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -64,6 +112,7 @@
     @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
 
     #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
+    .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
 
     .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
     input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
@@ -83,6 +132,14 @@
       font-size:1.05rem;
       display:none;
       transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
+    }
+    #btnAudio.speaking {
+      border:2px solid #00f0ff;
+      animation: pulseBtn 1s infinite alternate;
+    }
+    @keyframes pulseBtn {
+      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
+      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
     .rayo {
@@ -129,7 +186,7 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- Incluimos audio.js del frontend -->
+  <!-- Incluimos audio.js original -->
   <script src="audio.js"></script>
 
   <script>
@@ -142,6 +199,8 @@
     const btnAudioEl = document.getElementById('btnAudio');
 
     let paragraphs=[], currentParagraphIndex=0;
+    let paused=false;
+    let speech=null;
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -174,11 +233,13 @@
     function showLoading(name){
       screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
       btnAudioEl.style.display="none";
+      clearInterval(scrollInterval);
     }
 
     function showError(msg){
       screen.innerHTML=<p>❌ ${esc(msg)}</p>;
       btnAudioEl.style.display="none";
+      clearInterval(scrollInterval);
     }
 
     async function buscarPokemon(nombre){
@@ -198,18 +259,17 @@
                             <div id="resultado">${organized.html}</div>;
 
         paragraphs = organized.parasForTTS;
-        currentParagraphIndex=0;
+        currentParagraphIndex = 0;
         btnAudioEl.style.display="block";
+        paused=false;
+        speech = null;
 
-        screenContainer.style.maxHeight = "60vh"; 
-        screenContainer.style.minHeight = "320px"; 
-        screenContainer.style.width = "100%";
-
+        screenContainer.scrollTop = 0;
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
     buscarBtn.addEventListener("click", ()=>{
-      const nombre=(input.value||"").trim().toLowerCase();
+      const nombre = (input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
       buscarPokemon(nombre);
     });
@@ -220,32 +280,36 @@
       input.value="";
       screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
       btnAudioEl.style.display="none";
-      paragraphs=[]; currentParagraphIndex=0;
+      paragraphs=[]; currentParagraphIndex=0; paused=false;
       screenContainer.scrollTop = 0;
-      screenContainer.style.maxHeight = "50vh";
-      screenContainer.style.minHeight = "280px";
-      screenContainer.style.width = "100%";
+      if(speech) speech.pause();
     });
 
+    // 🔊 Botón Leer usa audio.js
     btnAudioEl.addEventListener("click", ()=>{
       if(!paragraphs.length) return;
 
-      // Pop Up de suscripción (solo alerta)
-      alert("Suscríbete para desbloquear la lectura completa (el audio seguirá reproduciéndose)");
+      // Pop up de suscripción (simulado)
+      alert("🔔 Suscripción requerida para acceder a funciones premium");
 
-      // Concatenamos los párrafos y reproducimos audio usando audio.js
-      const texto = paragraphs.join(" ");
-      generarAudio(texto);
+      // Texto completo del Pokémon
+      const textoCompleto = paragraphs.join("\n");
+      generarAudio(textoCompleto); // función de audio.js
 
-      // Scroll automático en tiempo real
-      const audioEl = document.getElementById("audioPlayer");
-      if(audioEl){
-        audioEl.ontimeupdate = ()=>{
-          const ratio = audioEl.currentTime / audioEl.duration;
-          screenContainer.scrollTop = ratio * (screenContainer.scrollHeight - screenContainer.clientHeight);
-        };
-      }
+      // Scroll automático
+      let scrollIndex = 0;
+      clearInterval(scrollInterval);
+      scrollInterval = setInterval(()=>{
+        if(scrollIndex >= paragraphs.length) { clearInterval(scrollInterval); return; }
+        const pEls = document.querySelectorAll("#resultado p");
+        if(pEls[scrollIndex]) {
+          pEls[scrollIndex].scrollIntoView({behavior:"smooth", block:"center"});
+        }
+        scrollIndex++;
+      }, 1500); // ajustable según velocidad de lectura
     });
+
+    let scrollInterval;
   })();
   </script>
 </body>
