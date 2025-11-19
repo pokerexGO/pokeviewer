@@ -72,7 +72,7 @@
     .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
-    #btnAudio {
+    #leerBtn {
       margin:6px 0;
       width:100%;
       padding:14px;
@@ -86,7 +86,7 @@
       display:none;
       transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
     }
-    #btnAudio.speaking {
+    #leerBtn.speaking {
       border:2px solid #00f0ff;
       animation: pulseBtn 1s infinite alternate;
     }
@@ -146,7 +146,7 @@
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
       .screen-container { min-height:240px; max-height:55vh; width:100%; }
-      input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
+      input[type="text"], .btnBuscar, .btnClear, #leerBtn { font-size:1rem; padding:10px 12px; }
     }
   </style>
 </head>
@@ -163,7 +163,7 @@
         <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
 
-      <button id="btnAudio">🔊 Leer</button>
+      <button id="leerBtn">🔊 Leer</button>
 
       <div class="controls">
         <input id="pokemonInput" type="text" placeholder="Ej: Pikachu" />
@@ -200,12 +200,12 @@
     const clearBtn = document.getElementById('clearBtn');
     const screen = document.getElementById('screen');
     const screenContainer = document.getElementById('screenContainer');
-    const btnAudioEl = document.getElementById('btnAudio');
+    const btnAudioEl = document.getElementById('leerBtn');
     const popupPago = document.getElementById('popupPago');
     const cerrarPopupBtn = document.getElementById('cerrarPopup');
     const paypalContainerId = 'paypal-button-container-P-08M86817PK1059649NEOAHEY';
     const legacyTextArea = document.getElementById('texto');
-    const legacyAudioPlayer = document.getElementById('audioPlayer');
+    let legacyAudioPlayer = document.getElementById('audioPlayer');
     const legacyDebug = document.getElementById('debug');
 
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
@@ -222,30 +222,107 @@
       if(legacyTextArea) legacyTextArea.value = texto || "";
     }
 
+    function logDepuracion(mensaje){
+      console.log(mensaje);
+      if(legacyDebug){
+        const linea = document.createElement('div');
+        linea.textContent = mensaje;
+        legacyDebug.appendChild(linea);
+        legacyDebug.scrollTop = legacyDebug.scrollHeight;
+      }
+    }
+
+    if(typeof window.generarAudio !== 'function'){
+      window.generarAudio = async function(texto){
+        logDepuracion("🎯 Botón Leer presionado. Texto: "+texto);
+        if(!texto || !texto.trim()){
+          logDepuracion("⚠️ Texto vacío, no se genera audio");
+          return;
+        }
+        try{
+          logDepuracion("☁️ Usando backend /api/audio (Cloudinary + UnrealSpeech)");
+          const respuesta = await fetch('/api/audio', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({text:texto})
+          });
+          const rawText = await respuesta.text();
+          let data;
+          try { data = JSON.parse(rawText); }
+          catch(err){
+            logDepuracion("💥 Respuesta no es JSON válida del backend:");
+            logDepuracion(rawText);
+            return;
+          }
+          logDepuracion("📦 Respuesta del backend:\n"+JSON.stringify(data,null,2));
+          if(!data.success || !data.audioUrl){
+            logDepuracion("❌ Error en el backend: "+(data.error||'Sin audioUrl válida'));
+            if(data.bytes) logDepuracion(`📏 Tamaño del audio recibido: ${data.bytes} bytes`);
+            return;
+          }
+          logDepuracion(`📏 Tamaño del audio generado: ${data.bytes} bytes`);
+          logDepuracion("✅ URL Cloudinary recibida: "+data.audioUrl);
+          window.reproducirAudio?.(data.audioUrl) ?? reproducirAudioInterno(data.audioUrl);
+        } catch(err){
+          logDepuracion("💥 Error al generar audio: "+err.message);
+        }
+      };
+    }
+
+    if(typeof window.reproducirAudio !== 'function'){
+      window.reproducirAudio = function(url){
+        reproducirAudioInterno(url);
+      };
+    }
+
+    function reproducirAudioInterno(url){
+      logDepuracion("▶️ Reproducción iniciada desde: "+url);
+      let audio = legacyAudioPlayer;
+      if(!audio){
+        audio = document.createElement('audio');
+        audio.id = 'audioPlayer';
+        audio.controls = true;
+        document.body.appendChild(audio);
+        legacyAudioPlayer = audio;
+      }
+      audio.pause();
+      audio.src='';
+      audio.src=url;
+      audio.type='audio/mpeg';
+      audio.load();
+      audio.oncanplaythrough = ()=>{
+        logDepuracion('🎶 Audio listo para reproducirse desde Cloudinary');
+        audio.play().catch(err=>logDepuracion('⚠️ Error al reproducir: '+err.message));
+      };
+      audio.onerror = (e)=>{
+        logDepuracion('❌ Error al cargar el audio: '+(e?.message||'desconocido'));
+      };
+    }
+
+    if(typeof window.realLeerDescripcionPokemon !== 'function'){
+      window.realLeerDescripcionPokemon = function(){
+        const texto = (legacyTextArea?.value || paragraphs.join("\n\n") || "").trim();
+        window.generarAudio?.(texto);
+      };
+    }
+
     function reproducirConUnrealSpeech(){
       const texto = (legacyTextArea?.value || paragraphs.join("\n\n") || "").trim();
       if(!texto){
-        if(legacyDebug) legacyDebug.textContent = "No hay texto para enviar a UnrealSpeech";
+        logDepuracion("No hay texto para enviar a UnrealSpeech");
         return false;
       }
 
+      logDepuracion("Invocando UnrealSpeech con el texto de Gemini");
       if(typeof window.generarAudio === 'function'){
-        if(legacyDebug) legacyDebug.textContent = "Invocando generarAudio (frontend UnrealSpeech)";
         window.generarAudio(texto);
         return true;
       }
-
       if(typeof window.realLeerDescripcionPokemon === 'function'){
-        if(legacyDebug) legacyDebug.textContent = "Invocando realLeerDescripcionPokemon heredado";
         window.realLeerDescripcionPokemon();
         return true;
       }
-
-      if(typeof window.reproducirAudio === 'function'){
-        if(legacyDebug) legacyDebug.textContent = "No hay generador, solo reproductor";
-      }
-
-      if(legacyDebug) legacyDebug.textContent = "No se encontró integración UnrealSpeech";
+      logDepuracion("❌ generarAudio no está disponible en la ventana");
       return false;
     }
 
