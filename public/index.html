@@ -65,9 +65,10 @@
 
     #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
     .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
+    .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
 
     .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
-    input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; background:#fff; color:#000; }
+    input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
     .btnBuscar{ padding:12px 14px; border-radius:10px; background:var(--accent); color:#0d1117; border:none; font-weight:800; cursor:pointer; font-size:1.05rem; }
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
@@ -94,34 +95,51 @@
       100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
-    /* POPUP */
+    .rayo {
+      position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
+      animation:caer 1.1s linear infinite;
+    }
+    .rayo.r1 { left:14%; animation-delay:0s; }
+    .rayo.r2 { left:50%; animation-delay:0.35s; }
+    .rayo.r3 { left:86%; animation-delay:0.65s; }
+    @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
+
     #popupPago {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
+      display:none;
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.8);
+      justify-content:center;
+      align-items:center;
+      z-index:2000;
+      padding:16px;
+      box-sizing:border-box;
     }
     #popupContent {
-      background: #1a1a1a;
-      padding: 25px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 360px;
-      text-align: center;
-      border: 1px solid #444;
+      background:#111926;
+      padding:24px;
+      border-radius:14px;
+      width:100%;
+      max-width:360px;
+      text-align:center;
+      border:1px solid rgba(255,255,255,0.15);
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
     }
+    #popupContent h2 { margin-top:0; color:var(--accent); }
+    #popupContent p { color:var(--muted); line-height:1.4; }
     #cerrarPopup {
-      margin-top: 10px;
-      background: red;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
+      margin-top:16px;
+      width:100%;
+      padding:10px;
+      border-radius:10px;
+      border:none;
+      font-weight:700;
+      cursor:pointer;
+      background:#f05454;
+      color:#fff;
     }
 
     @media (max-width:420px) {
@@ -130,9 +148,6 @@
       .screen-container { min-height:240px; max-height:55vh; width:100%; }
       input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
     }
-
-    /* debug oculto (si lo necesitas activar) */
-    #debug { display:none; font-family:monospace; font-size:0.9rem; white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -162,44 +177,37 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- POPUP Suscripción -->
   <div id="popupPago">
     <div id="popupContent">
       <h2>🔥 Versión Premium de Voz</h2>
-      <p>Suscríbete por solo <b>$3/mes</b> y usa la voz ilimitadamente.</p>
+      <p>Suscríbete por solo <strong>$3/mes</strong> y usa la voz ilimitadamente.</p>
       <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
       <button id="cerrarPopup">Cerrar</button>
     </div>
   </div>
 
-  <!-- audio element oculto para reproducir MP3 devuelto por backend -->
-  <audio id="audioPlayer" style="display:none;"></audio>
-
-  <!-- PayPal SDK (tu client-id) -->
   <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
   <script>
   (function(){
-    // ---------- Elementos ----------
     const input = document.getElementById('pokemonInput');
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
     const screen = document.getElementById('screen');
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
-    const popup = document.getElementById('popupPago');
+    const popupPago = document.getElementById('popupPago');
     const cerrarPopupBtn = document.getElementById('cerrarPopup');
-    const audioPlayer = document.getElementById('audioPlayer');
     const paypalContainerId = 'paypal-button-container-P-08M86817PK1059649NEOAHEY';
 
-    // ---------- Estado ----------
-    let usuarioSuscrito = false; // frontend-only (tu backend debe validar/almacenar)
-    let paragraphs = []; // texto separado listo para TTS
-    let scrollInterval = null;
+    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
+    let speech=null, paused=false;
+    let highlightInterval=null;
+    let usuarioSuscrito=false;
 
-    // ---------- Utilidades ----------
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-    function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
+
+    function splitText(text){ return text ? text.replace(/[*\/\#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
       const paras = splitText(text);
@@ -224,34 +232,74 @@
       });
       const out=[];
       Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=><p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>).join("");
+      const html = out.map(s=>`<p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>`).join("");
       const parasForTTS = out.map(s=>s.tag+": "+s.text);
       return {html, parasForTTS};
     }
 
-    function showLoading(name){
-      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-    }
-    function showError(msg){
-      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
+    function mostrarPopupSuscripcion(){
+      if(popupPago) popupPago.style.display='flex';
     }
 
-    // ---------- Buscar Pokémon (usa /api/proxy que ya tienes) ----------
+    function ocultarPopup(){
+      if(popupPago) popupPago.style.display='none';
+    }
+
+    function inicializarPaypal(){
+      if(!window.paypal || !document.getElementById(paypalContainerId)) return;
+      try {
+        window.paypal.Buttons({
+          style:{ shape:'rect', color:'gold', layout:'vertical', label:'subscribe' },
+          createSubscription:function(data, actions){
+            return actions.subscription.create({ plan_id:'P-08M86817PK1059649NEOAHEY' });
+          },
+          onApprove:function(){
+            usuarioSuscrito = true;
+            alert('Suscripción activada');
+            ocultarPopup();
+          }
+        }).render(`#${paypalContainerId}`);
+      } catch(err){
+        console.error('Error al inicializar PayPal', err);
+      }
+    }
+
+    if(window.paypal){
+      inicializarPaypal();
+    } else {
+      window.addEventListener('load', inicializarPaypal);
+    }
+
+    if(cerrarPopupBtn){
+      cerrarPopupBtn.addEventListener('click', ocultarPopup);
+    }
+    if(popupPago){
+      popupPago.addEventListener('click', (e)=>{ if(e.target===popupPago) ocultarPopup(); });
+    }
+
+    function showLoading(name){
+      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
+      screen.innerHTML=`<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>`;
+      btnAudioEl.style.display="none";
+      btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.border="2px solid transparent";
+      clearInterval(highlightInterval);
+      ocultarPopup();
+    }
+
+    function showError(msg){
+      screen.innerHTML=`<p>❌ ${esc(msg)}</p>`;
+      btnAudioEl.style.display="none";
+      btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.border="2px solid transparent";
+      clearInterval(highlightInterval);
+    }
+
     async function buscarPokemon(nombre){
       if(!nombre) return;
       showLoading(nombre);
       try{
-        const resp = await fetch("/api/proxy", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({pokemon:nombre})
-        });
+        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
         if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
         const data = await resp.json();
         if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
@@ -259,18 +307,18 @@
         const sprite = data.sprite||"";
         const organized = organize(data.respuesta);
 
-        screen.innerHTML = (sprite?<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">:"")+
-                            <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
-                            <div id="resultado">${organized.html}</div>;
+        screen.innerHTML = (sprite?`<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">`:"")+`<h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>`+`<div id="resultado">${organized.html}</div>`;
 
-        paragraphs = organized.parasForTTS || [];
-        btnAudioEl.style.display = paragraphs.length ? "block" : "none";
+        paragraphs = organized.parasForTTS;
+        paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
+        currentParagraphIndex=0;
+        btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
+        speech=null;
 
-        // ajustar contenedor
-        screenContainer.style.maxHeight = "60vh";
-        screenContainer.style.minHeight = "320px";
+        screenContainer.style.maxHeight = "60vh"; 
+        screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
@@ -279,6 +327,7 @@
     buscarBtn.addEventListener("click", ()=>{
       const nombre=(input.value||"").trim().toLowerCase();
       if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
       buscarPokemon(nombre);
     });
 
@@ -286,143 +335,108 @@
 
     clearBtn.addEventListener("click", ()=>{
       input.value="";
-      screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
+      screen.innerHTML=`<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>`;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      paragraphs=[]; 
-      if(audioPlayer && !audioPlayer.paused){ audioPlayer.pause(); audioPlayer.src = ""; }
+      paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      clearInterval(highlightInterval);
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
+      ocultarPopup();
     });
 
-    // ---------- PayPal popup rendering ----------
-    paypal.Buttons({
-      style: {
-        shape: 'rect',
-        color: 'gold',
-        layout: 'vertical',
-        label: 'subscribe'
-      },
-      createSubscription: function(data, actions) {
-        return actions.subscription.create({
-          plan_id: 'P-08M86817PK1059649NEOAHEY'
-        });
-      },
-      onApprove: function(data, actions) {
-        usuarioSuscrito = true;
-        alert("Suscripción activada");
-        popup.style.display = "none";
+    let speechInitialized = false;
+    document.body.addEventListener("click", function initDummySpeech() {
+      if (speechInitialized) return;
+      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+        const u = new SpeechSynthesisUtterance("");
+        u.lang = "es-ES";
+        window.speechSynthesis.speak(u);
+        window.speechSynthesis.cancel();
+        speechInitialized = true;
+        console.log("SpeechSynthesis inicializado para AppCreator24");
       }
-    }).render('#' + paypalContainerId);
+      document.body.removeEventListener("click", initDummySpeech);
+    });
 
-    cerrarPopupBtn.addEventListener('click', ()=>{ popup.style.display = "none"; });
-
-    // ---------- Funciones para generar audio (usa tu /api/audio backend) ----------
-    async function generarAudio(texto){
-      if(!texto || !texto.trim()){ console.warn("No hay texto para TTS."); return; }
-
-      try{
-        const resp = await fetch("/api/audio", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ text: texto })
-        });
-
-        const raw = await resp.text();
-        let data;
-        try { data = JSON.parse(raw); } catch(e){
-          console.error("Respuesta no JSON del backend:", raw);
-          return;
+    function startHighlightLoop(){
+      clearInterval(highlightInterval);
+      highlightInterval = setInterval(()=>{
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(currentParagraphIndex<paragraphElements.length) {
+          paragraphElements[currentParagraphIndex].classList.add("highlight");
+          paragraphElements[currentParagraphIndex].scrollIntoView({behavior:"smooth", block:"center"});
         }
-
-        if(!data.success || !data.audioUrl){
-          console.error("Backend error:", data.error || data);
-          return;
-        }
-
-        reproducirAudio(data.audioUrl);
-      } catch(err){
-        console.error("Error al llamar /api/audio:", err);
-      }
+      },50);
     }
 
-    function reproducirAudio(url){
-      if(!audioPlayer) return;
-      stopAutoScroll();
-      audioPlayer.pause();
-      audioPlayer.src = url;
-      audioPlayer.load();
-      audioPlayer.style.display = "block";
-      audioPlayer.oncanplaythrough = () => {
-        // start playback
-        audioPlayer.play().catch(e => console.warn("play failed:", e));
-        // start automatic scrolling while audio plays
-        startAutoScrollForAudio();
-      };
-      audioPlayer.onended = () => {
-        stopAutoScroll();
-        // al terminar, regresar al top del texto
-        if(screenContainer) screenContainer.scrollTop = 0;
+    function speakNext(){
+      if(currentParagraphIndex>=paragraphs.length){
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
-      };
-      audioPlayer.onerror = (e) => {
-        console.error("Error cargando audio:", e);
-        stopAutoScroll();
-      };
-    }
-
-    // ---------- Scroll automático proporcional al tiempo del audio ----------
-    function startAutoScrollForAudio(){
-      stopAutoScroll();
-      if(!audioPlayer || !screenContainer) return;
-      const duration = audioPlayer.duration || 0;
-      if(!isFinite(duration) || duration <= 0) return;
-      const start = screenContainer.scrollTop;
-      const maxScroll = screenContainer.scrollHeight - screenContainer.clientHeight;
-      // si no hay scroll posible, nada que hacer
-      if(maxScroll <= 0) return;
-
-      // Actualiza posición de scroll según currentTime / duration, varias veces por segundo
-      scrollInterval = setInterval(()=>{
-        try {
-          const t = audioPlayer.currentTime || 0;
-          const ratio = Math.min(1, Math.max(0, t / duration));
-          screenContainer.scrollTop = Math.round(ratio * maxScroll);
-        } catch(e){ /* ignore */ }
-      }, 150);
-    }
-
-    function stopAutoScroll(){
-      if(scrollInterval){ clearInterval(scrollInterval); scrollInterval = null; }
-    }
-
-    // ---------- btnAudio behavior: mostrar popup si no suscrito, pero SIEMPRE generar audio (para pruebas) ----------
-    btnAudioEl.addEventListener("click", async ()=>{
-      if(!paragraphs || paragraphs.length === 0){
-        alert("Primero genera la información del Pokémon (presiona Buscar).");
+        currentParagraphIndex=0;
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(screenContainer) screenContainer.scrollTop=0;
+        speech=null;
+        clearInterval(highlightInterval);
         return;
       }
 
-      const textToRead = paragraphs.join(" ");
+      const paragraph = paragraphs[currentParagraphIndex];
+      const u = new SpeechSynthesisUtterance(paragraph);
+      u.lang='es-ES';
 
-      // Mostrar popup si no suscrito
-      if(!usuarioSuscrito){
-        popup.style.display = "flex";
-        // según tu petición: generar audio de todas formas para pruebas
-        await generarAudio(textToRead);
-        return;
+      speech = u;
+      window.speechSynthesis.speak(u);
+      btnAudioEl.classList.add("speaking");
+      btnAudioEl.style.border="2px solid #00f0ff";
+      paused=false;
+      startHighlightLoop();
+
+      u.onend = ()=>{
+        currentParagraphIndex++;
+        speakNext();
+      };
+    }
+
+    function toggleLectura(){
+      if(!paragraphs.length || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance !== "function") return;
+      const synth = window.speechSynthesis;
+      if(synth.speaking && !paused){
+        synth.pause();
+        paused=true;
+        btnAudioEl.classList.remove("speaking");
+        btnAudioEl.style.border="2px solid transparent";
+        clearInterval(highlightInterval);
+      } else if(paused){
+        synth.resume();
+        paused=false;
+        btnAudioEl.classList.add("speaking");
+        btnAudioEl.style.border="2px solid #00f0ff";
+        startHighlightLoop();
+      } else {
+        currentParagraphIndex=0;
+        speakNext();
       }
+    }
 
-      await generarAudio(textToRead);
-    });
+    function manejarLeer(){
+      if(!paragraphs.length) return;
+      mostrarPopupSuscripcion();
+      toggleLectura();
+    }
 
-    // al cargar, ocultar botón hasta que haya texto
-    btnAudioEl.style.display = "none";
+    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
+      btnAudioEl.addEventListener("click", manejarLeer);
+    } else {
+      btnAudioEl.style.display="none";
+    }
 
-    // Fin IIFE
+    window.realLeerDescripcionPokemon = manejarLeer;
+
   })();
   </script>
 </body>
