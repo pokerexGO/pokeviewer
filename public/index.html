@@ -170,6 +170,11 @@
         <button id="buscarBtn" class="btnBuscar">Buscar</button>
         <button id="clearBtn" class="btnClear">Limpiar</button>
       </div>
+
+      <!-- Elementos ocultos requeridos por audio.js legacy (AppCreator24 / WebView) -->
+      <textarea id="texto" style="display:none"></textarea>
+      <audio id="audioPlayer" controls style="display:none"></audio>
+      <div id="debug" style="display:none"></div>
     </div>
   </div>
 
@@ -199,11 +204,16 @@
     const popupPago = document.getElementById('popupPago');
     const cerrarPopupBtn = document.getElementById('cerrarPopup');
     const paypalContainerId = 'paypal-button-container-P-08M86817PK1059649NEOAHEY';
+    const legacyTextArea = document.getElementById('texto');
+    const legacyAudioPlayer = document.getElementById('audioPlayer');
+    const legacyDebug = document.getElementById('debug');
 
     let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let speech=null, paused=false;
     let highlightInterval=null;
     let usuarioSuscrito=false;
+    const supportsSpeechSynthesis = "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
+    const isLegacyWebView = !supportsSpeechSynthesis || /appcreator24|wv|webview/i.test((navigator.userAgent||"").toLowerCase());
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -238,7 +248,7 @@
     }
 
     function mostrarPopupSuscripcion(){
-      if(popupPago) popupPago.style.display='flex';
+      if(!usuarioSuscrito && popupPago) popupPago.style.display='flex';
     }
 
     function ocultarPopup(){
@@ -317,6 +327,11 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
+        if(legacyTextArea){
+          legacyTextArea.value = paragraphs.join("\n\n");
+        }
+        if(legacyDebug){ legacyDebug.textContent = "Texto listo para TTS"; }
+
         screenContainer.style.maxHeight = "60vh"; 
         screenContainer.style.minHeight = "320px"; 
         screenContainer.style.width = "100%";
@@ -346,21 +361,23 @@
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
       ocultarPopup();
+      if(legacyTextArea){ legacyTextArea.value = ""; }
+      if(legacyAudioPlayer){ legacyAudioPlayer.pause(); legacyAudioPlayer.currentTime = 0; }
     });
 
-    let speechInitialized = false;
-    document.body.addEventListener("click", function initDummySpeech() {
-      if (speechInitialized) return;
-      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+    if(supportsSpeechSynthesis){
+      let speechInitialized = false;
+      document.body.addEventListener("click", function initDummySpeech() {
+        if (speechInitialized) return;
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
         window.speechSynthesis.cancel();
         speechInitialized = true;
         console.log("SpeechSynthesis inicializado para AppCreator24");
-      }
-      document.body.removeEventListener("click", initDummySpeech);
-    });
+        document.body.removeEventListener("click", initDummySpeech);
+      });
+    }
 
     function startHighlightLoop(){
       clearInterval(highlightInterval);
@@ -403,7 +420,7 @@
     }
 
     function toggleLectura(){
-      if(!paragraphs.length || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance !== "function") return;
+      if(!paragraphs.length || !supportsSpeechSynthesis) return;
       const synth = window.speechSynthesis;
       if(synth.speaking && !paused){
         synth.pause();
@@ -426,18 +443,18 @@
     function manejarLeer(){
       if(!paragraphs.length) return;
       mostrarPopupSuscripcion();
-      toggleLectura();
+      if(isLegacyWebView && typeof window.realLeerDescripcionPokemon === 'function'){
+        if(legacyDebug){ legacyDebug.textContent = "Reproduciendo vía UnrealSpeech"; }
+        window.realLeerDescripcionPokemon();
+      } else {
+        toggleLectura();
+      }
     }
 
-    if("speechSynthesis" in window && typeof SpeechSynthesisUtterance==="function"){
-      btnAudioEl.addEventListener("click", manejarLeer);
-    } else {
-      btnAudioEl.style.display="none";
-    }
-
-    window.realLeerDescripcionPokemon = manejarLeer;
+    btnAudioEl.addEventListener("click", manejarLeer);
 
   })();
   </script>
+  <script src="./audio.js"></script>
 </body>
 </html>
