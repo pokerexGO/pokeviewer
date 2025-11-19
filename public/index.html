@@ -261,6 +261,29 @@
       }
     }
 
+    function monitorizarAudioPlayer(){
+      const audio = document.getElementById('audioPlayer');
+      if(!audio || audio.__monitorizado) return;
+      const eventos = ['play','pause','ended','error','stalled','canplay','canplaythrough','loadeddata','waiting'];
+      eventos.forEach(evt=>{
+        audio.addEventListener(evt, ()=>{
+          logDepuracion(`🎵 audioPlayer evento: ${evt} (src=${audio.src||'sin src'})`);
+          if(evt==='error' && audio.error){
+            logDepuracion(`❌ audio.error code=${audio.error.code}`);
+          }
+        });
+      });
+      const observer = new MutationObserver(()=>{
+        logDepuracion(`🔁 audioPlayer src actualizado: ${audio.src||'sin src'}`);
+      });
+      observer.observe(audio, { attributes:true, attributeFilter:['src'] });
+      audio.__monitorizado = observer;
+      logDepuracion('👂 audioPlayer monitorizado para eventos');
+    }
+
+    monitorizarAudioPlayer();
+    setInterval(monitorizarAudioPlayer, 1200);
+
     function instrumentarAudioLegacy(){
       if(window.__legacyAudioInstrumentado) return;
       const originalGenerar = window.generarAudio;
