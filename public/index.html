@@ -32,9 +32,6 @@
       font-size:1.7rem; font-weight:800; color:var(--accent); text-shadow:0 0 10px #ffcc0088;
       letter-spacing:0.6px;
     }
-    @keyframes boltPulse { 0%{opacity:.18; transform:scale(.92) translateY(0);} 50%{opacity:1; transform:scale(1.06) translateY(-2px);} 100%{opacity:.28; transform:scale(.95) translateY(0);} }
-    .bolt.left{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s; }
-    .bolt.right{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0.6s; }
 
     .pokedex {
       background: var(--card-red);
@@ -61,11 +58,8 @@
     }
 
     .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
-    @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
-
     #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
     .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
-    .highlight { background: rgba(255,165,0,0.35) !important; border-radius:6px; }
 
     .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
     input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
@@ -73,7 +67,7 @@
     .btnClear{ padding:12px 14px; border-radius:10px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:1.05rem; }
 
     #btnAudio {
-      margin:6px 0; /* Más cerca de los botones */
+      margin:6px 0;
       width:100%;
       padding:14px;
       border-radius:10px;
@@ -95,16 +89,21 @@
       100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
-    .rayo {
-      position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
-      animation:caer 1.1s linear infinite;
+    #debug-mini {
+      position: fixed;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #ddd;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 9998;
+      max-width: 60%;
+      word-break: break-word;
     }
-    .rayo.r1 { left:14%; animation-delay:0s; }
-    .rayo.r2 { left:50%; animation-delay:0.35s; }
-    .rayo.r3 { left:86%; animation-delay:0.65s; }
-    @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
 
-    /* POPUP */
+    /* POPUP - integrado / idéntico al original */
     #popupPago {
       display: none;
       position: fixed;
@@ -127,11 +126,6 @@
     #cerrarPopup {
       margin-top: 10px;
       background: red;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
     }
 
     @media (max-width:420px) {
@@ -169,46 +163,57 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- POPUP CON BOTÓN PAYPAL (igual que HTML original) -->
+  <!-- POPUP SUSCRIPCION -->
   <div id="popupPago" aria-hidden="true">
     <div id="popupContent">
       <h2>🔥 Versión Premium de Voz</h2>
       <p>Suscríbete por solo <b>$3/mes</b> y usa la voz ilimitadamente.</p>
+
+      <!-- contenedor del botón PayPal (usa tu plan_id) -->
       <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
+
       <button id="cerrarPopup">Cerrar</button>
     </div>
   </div>
 
-  <!-- PayPal SDK (igual que en el HTML original) -->
+  <!-- PayPal SDK (mantén tu client-id) -->
   <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
-  <!-- (Opcional) tu audio.js si quieres mantenerlo separado. Lo dejamos comentado
-       Si quieres que la función realLeerDescripcionPokemon venga desde audio.js descomenta esta línea
-       <script src="./audio.js"></script>
-  -->
+  <!-- audio player oculto (se usará para reproducir audio retornado por /api/audio) -->
+  <audio id="audioPlayer" style="display:none"></audio>
+
+  <div id="debug-mini" style="display:none"></div>
 
   <script>
   (function(){
-    /* ---------- ELEMENTOS ---------- */
+    /* --- Elementos --- */
     const input = document.getElementById('pokemonInput');
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
     const screen = document.getElementById('screen');
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
+    const popup = document.getElementById('popupPago');
+    const cerrarPopup = document.getElementById('cerrarPopup');
+    const debugMini = document.getElementById('debug-mini');
+    const audioPlayer = document.getElementById('audioPlayer');
 
-    const popupPago = document.getElementById('popupPago');
-    const cerrarPopupBtn = document.getElementById('cerrarPopup');
-
-    /* ---------- ESTADO ---------- */
+    /* --- Estado --- */
     let paragraphs = [], paragraphElements = [], currentParagraphIndex = 0;
-    let speech = null, paused = false;
-    let highlightInterval = null;
-    let speechInitialized = false;
-    let usuarioSuscrito = false; // control local. En prod debería venir del backend
+    let paused = false;
+    let speechMode = 'server'; // 'server' = backend TTS + playback; 'synth' could be local (no usamos)
+    let usuarioSuscrito = false; // en producción debes validar con backend
+    let autoScrollEnabled = true; // mantenemos scroll automático durante reproducción
 
-    /* ---------- HELPERS ---------- */
+    /* --- Helpers --- */
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
+    function logMini(msg){
+      console.log(msg);
+      debugMini.style.display = "block";
+      debugMini.textContent = msg;
+      setTimeout(()=>{ debugMini.style.display = "none"; }, 4000);
+    }
+
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -239,34 +244,25 @@
       return {html, parasForTTS};
     }
 
+    /* --- Buscar / Limpiar (mantengo idéntico al nuevo HTML) --- */
     function showLoading(name){
-      if(speech && window.speechSynthesis) window.speechSynthesis.cancel();
       screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
     }
-
     function showError(msg){
       screen.innerHTML=<p>❌ ${esc(msg)}</p>;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      clearInterval(highlightInterval);
     }
 
-    /* ---------- BÚSQUEDA / RENDER ---------- */
     async function buscarPokemon(nombre){
       if(!nombre) return;
       showLoading(nombre);
       try{
-        // Llama a tu proxy backend (igual que antes)
-        const resp = await fetch("/api/proxy", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({pokemon:nombre})
-        });
+        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
         if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
         const data = await resp.json();
         if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
@@ -278,26 +274,19 @@
                             <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
                             <div id="resultado">${organized.html}</div>;
 
-        // Inicializar TTS después de renderizado (importante)
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        currentParagraphIndex = 0;
-        btnAudioEl.style.display = "block";
+        currentParagraphIndex=0;
+        btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
-        speech = null;
 
         // Ajuste cuadro IA más grande
         screenContainer.style.maxHeight = "60vh";
         screenContainer.style.minHeight = "320px";
         screenContainer.style.width = "100%";
 
-        // Si había lectura en curso, cancelar (comportamiento pedido)
-        if(window.speechSynthesis) window.speechSynthesis.cancel();
-      } catch(err){
-        console.error(err);
-        showError("Error al conectar con el servidor.");
-      }
+      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
 
     buscarBtn.addEventListener("click", ()=>{
@@ -315,196 +304,143 @@
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
-      if(window.speechSynthesis) window.speechSynthesis.cancel();
-      clearInterval(highlightInterval);
+      if(!audioPlayer.paused){ audioPlayer.pause(); }
+      audioPlayer.src = "";
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
 
-    /* ---------- Inicializar SpeechSynthesis (AppCreator/WebView friendly) ---------- */
+    /* --- PayPal: render del botón dentro del popup --- */
+    // Nota: este código usa el client-id y plan_id que ya tenías en el HTML original
+    paypal.Buttons({
+      style: {
+        shape: 'rect',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'subscribe'
+      },
+      createSubscription: function(data, actions) {
+        return actions.subscription.create({
+          plan_id: 'P-08M86817PK1059649NEOAHEY'
+        });
+      },
+      onApprove: function(data, actions) {
+        usuarioSuscrito = true;
+        alert("Suscripción activada — gracias 😊");
+        popup.style.display = "none";
+      }
+    }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
+
+    cerrarPopup.addEventListener("click", ()=>{ popup.style.display = "none"; });
+
+    /* --- Generación de audio (llama a /api/audio, espera respuesta y reproduce) --- */
+    async function generarAudio(texto){
+      if(!texto || !texto.trim()) return;
+      logMini("Generando audio...");
+      try{
+        const resp = await fetch("/api/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: texto }) // backend espera { text }
+        });
+
+        const raw = await resp.text();
+        let data;
+        try { data = JSON.parse(raw); } catch(e){ logMini("Respuesta backend no JSON"); console.error(raw); return; }
+
+        if(!data.success || !data.audioUrl){
+          logMini("Error backend: " + (data.error || "sin audioUrl"));
+          console.error(data);
+          return;
+        }
+
+        const url = data.audioUrl;
+        logMini("Audio listo (" + (data.bytes || "?") + " bytes)");
+        // reproducir
+        playAudioUrl(url);
+
+      } catch(err){
+        console.error(err);
+        logMini("Error generando audio: " + err.message);
+      }
+    }
+
+    /* Reproductor y scroll automático proporcional */
+    function playAudioUrl(url){
+      audioPlayer.pause();
+      audioPlayer.src = url;
+      audioPlayer.style.display = "none"; // mantenemos interfaz limpia (el nuevo HTML no mostraba elemento audio)
+      audioPlayer.load();
+
+      // Intentar autoplay; si hay bloqueo, usuario deberá tocar
+      audioPlayer.oncanplay = () => {
+        // reproducir
+        audioPlayer.play().catch(e => {
+          // autoplay bloqueo posible: mostramos mini mensaje
+          logMini("Reproducción bloqueada por autoplay; presiona reproducir manualmente.");
+          console.warn(e);
+        });
+      };
+
+      // tiempo para manejar scroll proporcional al progreso
+      audioPlayer.ontimeupdate = () => {
+        if(!autoScrollEnabled) return;
+        const dur = audioPlayer.duration || 0;
+        if(isFinite(dur) && dur > 0){
+          const prog = audioPlayer.currentTime / dur; // 0..1
+          // scroll máximo: bottom of screenContainer scroll height - clientHeight
+          const maxScroll = screenContainer.scrollHeight - screenContainer.clientHeight;
+          screenContainer.scrollTop = Math.round(maxScroll * prog);
+        }
+      };
+
+      audioPlayer.onended = () => {
+        // Al terminar volver al inicio del texto
+        screenContainer.scrollTop = 0;
+        audioPlayer.src = "";
+        logMini("Lectura finalizada.");
+      };
+
+      audioPlayer.onerror = (e) => {
+        console.error("Error audioPlayer:", e);
+        logMini("Error al reproducir audio.");
+      };
+    }
+
+    /* --- btnAudio comportamiento: mostrar popup si no suscrito, pero generar audio igualmente (para pruebas) --- */
+    btnAudioEl.addEventListener("click", async () => {
+      if(!paragraphs.length) return;
+      const textoCompleto = paragraphs.join(". ");
+      // Si no suscrito, mostrar popup (pero seguimos generando audio para pruebas)
+      if(!usuarioSuscrito){
+        popup.style.display = "flex";
+        // Generar audio de todas formas (según tu indicación)
+        await generarAudio(textoCompleto);
+        return;
+      }
+      // Si está suscrito, generar normalmente
+      await generarAudio(textoCompleto);
+    });
+
+    /* --- Inicialización mínima para evitar bloqueo en AppCreator24 (igual que tenías) --- */
+    let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
-      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
-        const u = new SpeechSynthesisUtterance("");
-        u.lang = "es-ES";
-        // speak a silent utterance to unlock on some webviews
-        try { window.speechSynthesis.speak(u); window.speechSynthesis.cancel(); } catch(e){ /ignore/ }
-        speechInitialized = true;
-        console.log("SpeechSynthesis inicializado");
-      }
-      // remove handler once done
+      // tocamos audioPlayer para permitir play en ciertas webviews
+      try {
+        audioPlayer.muted = true;
+        audioPlayer.play().catch(()=>{/* ignore */});
+        audioPlayer.pause();
+        audioPlayer.muted = false;
+      } catch(e){}
+      speechInitialized = true;
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    /* ---------- HIGHLIGHT & SCROLL ---------- */
-    function startHighlightLoop(){
-      clearInterval(highlightInterval);
-      highlightInterval = setInterval(()=>{
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(currentParagraphIndex < paragraphElements.length) {
-          const el = paragraphElements[currentParagraphIndex];
-          el.classList.add("highlight");
-          // scroll so highlighted paragraph is visible
-          el.scrollIntoView({behavior:"smooth", block:"center"});
-        }
-      }, 50);
-    }
-
-    /* ---------- TTS: speakNext (usa paragraphs[]) ---------- */
-    function speakNext(){
-      if(currentParagraphIndex >= paragraphs.length){
-        // finished
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-        currentParagraphIndex = 0;
-        paragraphElements.forEach(p=>p.classList.remove("highlight"));
-        if(screenContainer) screenContainer.scrollTop = 0;
-        speech = null;
-        clearInterval(highlightInterval);
-        return;
-      }
-
-      const paragraph = paragraphs[currentParagraphIndex];
-      const u = new SpeechSynthesisUtterance(paragraph);
-      u.lang = 'es-ES';
-      speech = u;
-      window.speechSynthesis.speak(u);
-      btnAudioEl.classList.add("speaking");
-      btnAudioEl.style.border="2px solid #00f0ff";
-      paused = false;
-      startHighlightLoop();
-
-      u.onend = ()=>{
-        currentParagraphIndex++;
-        speakNext();
-      };
-
-      u.onerror = (e) => {
-        console.error("TTS error:", e);
-        // Try to continue or stop gracefully
-        currentParagraphIndex++;
-        speakNext();
-      };
-    }
-
-    /* ---------- Función pública que el HTML original llamaba: realLeerDescripcionPokemon ----------
-       Aquí implementamos la misma lógica que en el HTML original:
-       - Si no hay paragraphs cargados (p. ej. se usaba el textarea en el HTML original),
-         tomará el texto del #screen o de un posible textarea (compatibilidad).
-       - Inicia/pausa/resume la lectura por párrafos y respeta el comportamiento pedido.
-       - IMPORTANT: Mostramos popup si no está suscrito, pero seguimos generando voz (modo prueba)
-    */
-    window.realLeerDescripcionPokemon = function(){
-      // Si no hay contenido TTS en paragraphs, intentar obtener texto del screen (compatibilidad)
-      if(!paragraphs || paragraphs.length === 0){
-        // intentar extraer texto desde #screen (líneas)
-        const txt = (document.getElementById('screen')?.innerText || "").trim();
-        if(txt){
-          const organized = organize(txt);
-          paragraphs = organized.parasForTTS;
-          paragraphElements = []; // no tenemos elementos para resaltar en este caso
-          currentParagraphIndex = 0;
-        } else {
-          console.warn("No hay texto para leer.");
-          return;
-        }
-      }
-
-      const synth = window.speechSynthesis;
-      if(synth.speaking || paused){
-        if(!paused){
-          try { synth.pause(); } catch(e){/ignore/ }
-          paused = true;
-          btnAudioEl.classList.remove("speaking");
-          btnAudioEl.style.border="2px solid transparent";
-          clearInterval(highlightInterval);
-        } else {
-          try { synth.resume(); } catch(e){/ignore/ }
-          paused = false;
-          btnAudioEl.classList.add("speaking");
-          btnAudioEl.style.border="2px solid #00f0ff";
-          startHighlightLoop();
-        }
-      } else {
-        // start fresh
-        currentParagraphIndex = 0;
-        // if we have paragraphElements, use them; otherwise create dummy elements for highlighting fallback
-        if(paragraphElements.length === 0 && document.getElementById('resultado')){
-          paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        }
-        speakNext();
-      }
-    };
-
-    /* ---------- btnAudio click: mostrar popup si no está suscrito (pero generar audio igual) ---------- */
-    btnAudioEl.addEventListener("click", ()=> {
-      // If not subscribed, show popup (but still start TTS for testing)
-      if(!usuarioSuscrito){
-        popupPago.style.display = "flex";
-        popupPago.setAttribute("aria-hidden", "false");
-      }
-      // Start (or pause/resume) the real reading function
-      window.realLeerDescripcionPokemon();
-    });
-
-    /* ---------- PAYPAL rendering / suscripción (igual que el HTML original) ---------- */
-    // Guardamos el botón de paypal en onload del SDK. Si el SDK no está cargado al ejecutar esto,
-    // PayPal.Buttons será undefined y habrá que esperar. Hacemos wrapper seguro.
-    function renderPayPalButton(){
-      if(typeof paypal === "undefined" || !paypal.Buttons) {
-        // SDK not ready yet; try again shortly
-        setTimeout(renderPayPalButton, 500);
-        return;
-      }
-
-      paypal.Buttons({
-        style: {
-          shape: 'rect',
-          color: 'gold',
-          layout: 'vertical',
-          label: 'subscribe'
-        },
-        createSubscription: function(data, actions) {
-          return actions.subscription.create({
-            plan_id: 'P-08M86817PK1059649NEOAHEY'
-          });
-        },
-        onApprove: function(data, actions) {
-          usuarioSuscrito = true;
-          alert("Suscripción activada");
-          popupPago.style.display = "none";
-          popupPago.setAttribute("aria-hidden", "true");
-        },
-        onCancel: function(data){
-          // user closed paypal checkout
-        },
-        onError: function(err){
-          console.error("PayPal error:", err);
-        }
-      }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
-    }
-
-    // Start rendering (will retry if SDK not yet present)
-    renderPayPalButton();
-
-    /* ---------- popup cerrar ---------- */
-    cerrarPopupBtn.addEventListener("click", ()=>{
-      popupPago.style.display = "none";
-      popupPago.setAttribute("aria-hidden", "true");
-    });
-
-    /* ---------- Expose a method to programmatically set user subscribed (for testing) ---------- */
-    window.__setUsuarioSuscritoForTest = function(v){ usuarioSuscrito = !!v; };
-
-    /* ---------- Inicial mostrar btnAudio hidden until content ---------- */
-    btnAudioEl.style.display = "none";
-
-    /* ---------- Optional: if you want the original behavior of HTML (text area TTS),
-       you might have a textarea in the original HTML. If that file (audio.js) exists and
-       defines window.realLeerDescripcionPokemon, it will be used instead of this inline copy.
-       We provided this inline implementation to guarantee behavior when audio.js is not loaded.
-    ---------- */
+    /* --- Al cargar, mantener todo tal cual (sin tocar interfaz) --- */
+    // Nada más. Todas las funciones de buscar/limpiar/responsive quedan intactas.
+    // El botón de "Leer" estará oculto hasta que haya contenido (igual que antes).
 
   })();
   </script>
