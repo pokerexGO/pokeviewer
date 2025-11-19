@@ -32,11 +32,11 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: Bearer ${process.env.UNREAL_API_KEY},
+        Authorization: `Bearer ${process.env.UNREAL_API_KEY}`,
       },
       body: JSON.stringify({
         Text: text,
-        VoiceId: "Amy", // ✅ Voz que pediste
+        VoiceId: "Amy", // ✅ Voz solicitada
         Codec: "mp3",
         Speed: 0,
         Pitch: 1,
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     const audioBuffer = await audioResponse.arrayBuffer();
 
     const audioBytes = Buffer.byteLength(Buffer.from(audioBuffer));
-    console.log(📏 Tamaño del audio descargado: ${audioBytes} bytes (${(audioBytes / 1024).toFixed(2)} KB));
+    console.log(`📏 Tamaño del audio descargado: ${audioBytes} bytes (${(audioBytes / 1024).toFixed(2)} KB)`);
 
     if (audioBytes < 2000) {
       return res.status(500).json({
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         {
           resource_type: "auto",
           folder: "tts_audio",
-          public_id: tts_${Date.now()},
+          public_id: `tts_${Date.now()}`,
           format: "mp3",
         },
         (error, result) => {
