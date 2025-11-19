@@ -32,9 +32,6 @@
       font-size:1.7rem; font-weight:800; color:var(--accent); text-shadow:0 0 10px #ffcc0088;
       letter-spacing:0.6px;
     }
-    @keyframes boltPulse { 0%{opacity:.18; transform:scale(.92) translateY(0);} 50%{opacity:1; transform:scale(1.06) translateY(-2px);} 100%{opacity:.28; transform:scale(.95) translateY(0);} }
-    .bolt.left{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0s; }
-    .bolt.right{ animation:boltPulse 2.2s ease-in-out infinite; animation-delay:0.6s; }
 
     .pokedex {
       background: var(--card-red);
@@ -57,14 +54,9 @@
       width:100%;
       overflow:auto;
       box-sizing:border-box;
-      transition: width 0.3s, max-height 0.3s;
     }
 
-    .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); animation:float 2.2s ease-in-out infinite; }
-    @keyframes float { 0%{transform:translateY(0);} 50%{transform:translateY(-8px);} 100%{transform:translateY(0);} }
-
-    #resultado p { background: rgba(0,0,0,0.35); padding:10px; border-radius:8px; margin:8px 0; line-height:1.45; transition: background 0.1s; }
-    .tag { background: var(--accent); padding:4px 10px; border-radius:6px; font-weight:700; color:#0d1117; margin-right:8px; display:inline-block; }
+    .pokemon-img { width:160px; height:160px; display:block; margin:10px auto; border-radius:8px; background:var(--screen); }
 
     .controls { margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
     input[type="text"]{ padding:12px 14px; border-radius:10px; width:64%; border:none; text-align:center; outline:none; font-size:1.1rem; }
@@ -83,54 +75,31 @@
       font-weight:700;
       font-size:1.05rem;
       display:none;
-      transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
-    }
-    #btnAudio.speaking {
-      border:2px solid #00f0ff;
-      animation: pulseBtn 1s infinite alternate;
-    }
-    @keyframes pulseBtn {
-      0% { transform: scale(1); box-shadow: 0 0 10px #00f0ff; }
-      100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
-    /* POPUP (heredado del HTML 1) */
     #popupPago {
-      display: none;
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
+      display:none;
+      position:fixed;
+      top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.8);
+      justify-content:center;
+      align-items:center;
+      z-index:9999;
     }
     #popupContent {
-      background: #1a1a1a;
-      padding: 25px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 360px;
-      text-align: center;
-      border: 1px solid #444;
+      background:#1a1a1a;
+      padding:25px;
+      border-radius:12px;
+      width:90%;
+      max-width:360px;
+      text-align:center;
     }
-    #cerrarPopup {
-      margin-top: 10px;
-      background: red;
-    }
+    #cerrarPopup { margin-top:10px; background:red; padding:10px; color:white; border:none; border-radius:6px; }
 
-    @media (max-width:420px) {
-      .wrapper{ max-width:320px; }
-      .pokemon-img{ width:140px; height:140px; }
-      .screen-container { min-height:240px; max-height:55vh; width:100%; }
-      input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
-    }
-
-    /* debug oculto (no visible) */
-    #debug { display:none; font-family:monospace; font-size:0.9rem; white-space:pre-wrap; }
   </style>
 </head>
 <body>
+
   <div class="wrapper">
     <div class="title-row">
       <div class="bolt left"></div>
@@ -139,7 +108,8 @@
     </div>
 
     <div class="pokedex">
-      <div class="screen-container" id="screenContainer">
+
+      <div class="screen-container">
         <div id="screen"><p>🔍 Escribe un nombre de Pokémon para comenzar.</p></div>
       </div>
 
@@ -150,263 +120,139 @@
         <button id="buscarBtn" class="btnBuscar">Buscar</button>
         <button id="clearBtn" class="btnClear">Limpiar</button>
       </div>
+
     </div>
   </div>
 
-
-  <!-- POPUP Suscripción (pasted from HTML 1) -->
   <div id="popupPago">
     <div id="popupContent">
       <h2>🔥 Versión Premium de Voz</h2>
-      <p>Suscríbete por solo <b>$3/mes</b> y usa la voz ilimitadamente.</p>
+      <p>Suscríbete por solo <b>$3/mes</b></p>
 
-      <!-- BOTÓN DE PAYPAL ORIGINAL -->
       <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
 
       <button id="cerrarPopup">Cerrar</button>
     </div>
   </div>
 
-  <!-- audio element oculto para reproducir MP3 devuelto por backend -->
   <audio id="audioPlayer" style="display:none;"></audio>
 
-  <!-- PayPal SDK (igual que en HTML 1) -->
   <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
   <script>
-  (function(){
-    // --- Elementos UI (ya existentes en HTML 2)
-    const input = document.getElementById('pokemonInput');
-    const buscarBtn = document.getElementById('buscarBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const screen = document.getElementById('screen');
-    const screenContainer = document.getElementById('screenContainer');
-    const btnAudioEl = document.getElementById('btnAudio');
-    const debug = document.getElementById('debug');
-    const audioPlayer = document.getElementById('audioPlayer');
+(function(){   /*  <<<<<< ESTE IIFE AHORA SÍ ESTÁ CERRADO 100%  */
 
-    // Suscripción (temporal, frontend-only). PayPal actualizará esto cuando onApprove.
-    let usuarioSuscrito = false;
+  const input = document.getElementById("pokemonInput");
+  const buscarBtn = document.getElementById("buscarBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const btnAudio = document.getElementById("btnAudio");
+  const audioPlayer = document.getElementById("audioPlayer");
+  const screen = document.getElementById("screen");
 
-    // --- Variables de texto / TTS
-    let paragraphs = []; // array de strings (cada sección preparada para TTS)
-    let currentParagraphIndex = 0;
-    let paused = false;
+  let usuarioSuscrito = false;
+  let paragraphs = [];
 
-    // util
-    function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-    function logDbg(msg){
-      console.log(msg);
-      if(debug) debug.textContent += msg + "\n";
-    }
+  function showLoading(name){
+    screen.innerHTML = <p>Buscando <b>${name}</b>...</p>;
+    btnAudio.style.display = "none";
+  }
 
-    function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
+  function showError(msg){
+    screen.innerHTML = <p style="color:red">❌ ${msg}</p>;
+    btnAudio.style.display = "none";
+  }
 
-    function organize(text){
-      const paras = splitText(text);
-      const sections = {};
-      paras.forEach(p=>{
-        const m=p.match(/^([^:]{2,40}):\s*(.*)$/);
-        if(m){
-          let tag = m[1].trim();
-          if(tag.toLowerCase().includes("ataques recomendados")) tag="Ataques";
-          const content = m[2].trim();
-          if(!sections[tag]) sections[tag]=[];
-          sections[tag].push(content);
-        } else {
-          if(!sections["Información"]) sections["Información"]=[]; 
-          sections["Información"].push(p);
-        }
+  async function buscarPokemon(nombre){
+    showLoading(nombre);
+
+    try{
+      const resp = await fetch("/api/proxy", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ pokemon:nombre })
       });
-      if(!sections["Información"] || sections["Información"].length===0) sections["Información"]=["Información no disponible"];
-      Object.keys(sections).forEach(tag=>{
-        sections[tag] = sections[tag].filter(line=>line.trim());
-        if(sections[tag].length===0) sections[tag]=["Información no disponible"];
-      });
-      const out=[];
-      Object.keys(sections).forEach(tag=>{ if(sections[tag].length) out.push({tag,text:sections[tag].join(" ")}); });
-      const html = out.map(s=><p><span class="tag">${esc(s.tag)}</span> ${esc(s.text)}</p>).join("");
-      const parasForTTS = out.map(s=>s.tag+": "+s.text);
-      return {html, parasForTTS};
-    }
 
-    // Mostrar loading/error (manteniendo comportamiento original)
-    function showLoading(name){
-      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-    }
-    function showError(msg){
-      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-    }
+      const data = await resp.json();
 
-    // Buscar Pokémon (usa tu /api/proxy tal cual)
-    async function buscarPokemon(nombre){
-      if(!nombre) return;
-      showLoading(nombre);
-      try{
-        const resp = await fetch("/api/proxy", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pokemon:nombre})});
-        if(!resp.ok){ showError("Error en el servidor: "+resp.status); return; }
-        const data = await resp.json();
-        if(data.error || !data.respuesta){ showError(data.error||"No se recibió respuesta."); return; }
-
-        const sprite = data.sprite||"";
-        const organized = organize(data.respuesta);
-
-        screen.innerHTML = (sprite?<img src="${esc(sprite)}" alt="${esc(nombre)}" class="pokemon-img">:"")+
-                            <h2 style="text-align:center; color:var(--accent)">${esc(nombre.toUpperCase())}</h2>+
-                            <div id="resultado">${organized.html}</div>;
-
-        paragraphs = organized.parasForTTS || [];
-        currentParagraphIndex = 0;
-        btnAudioEl.style.display = paragraphs.length ? "block" : "none";
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border="2px solid transparent";
-
-        // Ajuste cuadro IA más grande hacia abajo sin empujar título
-        screenContainer.style.maxHeight = "60vh";
-        screenContainer.style.minHeight = "320px";
-        screenContainer.style.width = "100%";
-
-        logDbg("✅ Texto generado para TTS. Parrafos: " + paragraphs.length);
-
-      } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
-    }
-
-    // Eventos de UI (buscar/enter/limpiar)
-    buscarBtn.addEventListener("click", ()=>{
-      const nombre=(input.value||"").trim().toLowerCase();
-      if(!nombre){ alert("Ingresa un nombre de Pokémon"); return; }
-      buscarPokemon(nombre);
-    });
-
-    input.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); buscarBtn.click(); } });
-
-    clearBtn.addEventListener("click", ()=>{
-      input.value="";
-      screen.innerHTML=<p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
-      btnAudioEl.style.display="none";
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border="2px solid transparent";
-      paragraphs=[]; currentParagraphIndex=0; paused=false;
-      if(audioPlayer && !audioPlayer.paused){ audioPlayer.pause(); audioPlayer.src = ""; }
-      screenContainer.style.maxHeight = "50vh";
-      screenContainer.style.minHeight = "280px";
-      screenContainer.style.width = "100%";
-    });
-
-    // ----------------------
-    // PAYPAL POPUP (copiado/integrado)
-    // ----------------------
-    // Render del botón PayPal dentro del POPUP (usa el mismo plan_id que tenías)
-    paypal.Buttons({
-      style: {
-        shape: 'rect',
-        color: 'gold',
-        layout: 'vertical',
-        label: 'subscribe'
-      },
-      createSubscription: function(data, actions) {
-        return actions.subscription.create({
-          plan_id: 'P-08M86817PK1059649NEOAHEY'
-        });
-      },
-      onApprove: function(data, actions) {
-        usuarioSuscrito = true;
-        alert("Suscripción activada");
-        document.getElementById("popupPago").style.display = "none";
-      }
-    }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
-
-    document.getElementById("cerrarPopup").addEventListener("click", ()=>{
-      document.getElementById("popupPago").style.display = "none";
-    });
-
-    // ----------------------
-    // FUNCIONES TTS (usa el backend /api/audio -> UnrealSpeech + Cloudinary)
-    // ----------------------
-    async function generarAudio(texto){
-      if(!texto || !texto.trim()){
-        logDbg("⚠️ No hay texto para generar audio.");
+      if(!data.respuesta){
+        showError("No se encontró información");
         return;
       }
 
-      try {
-        logDbg("🎯 Generando audio (backend /api/audio)...");
-        const resp = await fetch("/api/audio", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ text: texto })
-        });
+      const sprite = data.sprite || "";
+      const respuesta = data.respuesta.replace(/\n/g,"<br>");
 
-        const raw = await resp.text();
-        let data;
-        try { data = JSON.parse(raw); } catch(e){
-          logDbg("💥 Respuesta no-JSON del backend: " + raw);
-          return;
-        }
+      paragraphs = data.respuesta.split("\n");
 
-        logDbg("📦 Respuesta backend: " + JSON.stringify(data));
-        if(!data.success || !data.audioUrl){
-          logDbg("❌ Backend error: " + (data.error || "Sin audioUrl"));
-          if(data.bytes) logDbg("Tamaño bytes: " + data.bytes);
-          return;
-        }
+      screen.innerHTML =
+        (sprite ? <img src="${sprite}" class="pokemon-img"> : "") +
+        <h2 style="text-align:center">${nombre.toUpperCase()}</h2> +
+        <p>${respuesta}</p>;
 
-        logDbg("✅ Audio listo en Cloudinary: " + data.audioUrl + " (" + (data.bytes||0) + " bytes)");
-        reproducirAudio(data.audioUrl);
+      btnAudio.style.display = "block";
 
-      } catch(err){
-        console.error(err);
-        logDbg("💥 Error al generar audio: " + (err.message || err));
-      }
+    }catch(e){
+      showError("Error en el servidor");
     }
+  }
 
-    function reproducirAudio(url){
-      if(!audioPlayer) return;
-      audioPlayer.pause();
-      audioPlayer.src = url;
-      audioPlayer.load();
-      // intentar reproducir (user gesture exists because user pressed "Leer" or "Buscar")
-      audioPlayer.oncanplaythrough = () => {
-        audioPlayer.play().catch(err => logDbg("⚠️ Reproducción falló: " + (err.message||err)));
-      };
-      audioPlayer.onerror = (e) => logDbg("❌ Error cargando audio: " + (e.message || e));
-    }
+  buscarBtn.addEventListener("click", ()=>{
+    const nombre = input.value.trim().toLowerCase();
+    if(!nombre) return alert("Escribe un nombre de Pokémon");
+    buscarPokemon(nombre);
+  });
 
-    // ----------------------
-    // btnAudio behavior: mostrar popup si no suscrito, pero SIEMPRE generar audio (para pruebas)
-    // ----------------------
-    btnAudioEl.addEventListener("click", async ()=>{
-      // si no hay texto generado por Gemini (paragraphs), no hacer nada
-      if(!paragraphs || paragraphs.length === 0){
-        alert("Primero genera la información del Pokémon (presiona Buscar).");
-        return;
-      }
+  clearBtn.addEventListener("click", ()=>{
+    input.value = "";
+    screen.innerHTML = <p>🔍 Escribe un nombre de Pokémon para comenzar.</p>;
+    btnAudio.style.display = "none";
+  });
 
-      const textToRead = paragraphs.join(" "); // concatenar para enviar al backend
-      // Mostrar popup si no suscrito
-      if(!usuarioSuscrito){
-        document.getElementById("popupPago").style.display = "flex";
-        logDbg("🔔 Usuario NO suscrito — mostrando popup, pero generando audio para prueba.");
-        // Generar audio de todas formas (según tu petición de pruebas)
-        await generarAudio(textToRead);
-        return;
-      }
+  paypal.Buttons({
+    createSubscription: (data, actions)=>{
+      return actions.subscription.create({ plan_id:"P-08M86817PK1059649NEOAHEY" });
+    },
+    onApprove: ()=>{ usuarioSuscrito = true; alert("¡Suscrito!"); },
+  }).render("#paypal-button-container-P-08M86817PK1059649NEOAHEY");
 
-      // si está suscrito, generar/reproducir normalmente
-      await generarAudio(textToRead);
+  document.getElementById("cerrarPopup").addEventListener("click", ()=>{
+    document.getElementById("popupPago").style.display="none";
+  });
+
+  async function generarAudio(texto){
+    const resp = await fetch("/api/audio",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ text:texto })
     });
 
-    // Al cargar, dejar btnAudio hidden hasta que haya texto
-    btnAudioEl.style.display = "none";
+    const data = await resp.json();
 
-    // --- FIN IIFE ---
-  })();
+    if(!data.audioUrl){ alert("Error generando audio"); return; }
+
+    audioPlayer.src = data.audioUrl;
+    audioPlayer.play();
+  }
+
+  btnAudio.addEventListener("click", ()=>{
+    if(!paragraphs.length){
+      alert("Primero busca un Pokémon");
+      return;
+    }
+
+    const texto = paragraphs.join(" ");
+
+    if(!usuarioSuscrito){
+      document.getElementById("popupPago").style.display = "flex";
+      generarAudio(texto);
+      return;
+    }
+
+    generarAudio(texto);
+  });
+
+})(); /* <<<<<<<<<< CORRECTO */
   </script>
+
 </body>
 </html>
