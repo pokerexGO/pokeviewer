@@ -261,6 +261,59 @@
       }
     }
 
+    function instrumentarAudioLegacy(){
+      if(window.__legacyAudioInstrumentado) return;
+      const originalGenerar = window.generarAudio;
+      if(typeof originalGenerar !== 'function'){
+        logDepuracion('⌛ Esperando a que audio.js exponga generarAudio...');
+        return;
+      }
+
+      const originalReproducir = window.reproducirAudio;
+      if(typeof originalReproducir === 'function'){
+        window.reproducirAudio = function(url){
+          logDepuracion('🎧 Intento de reproducir URL: '+url);
+          try {
+            return originalReproducir.call(this, url);
+          } catch(err){
+            logDepuracion('❌ Error interno en reproducirAudio: '+err.message);
+            throw err;
+          }
+        };
+      }
+
+      window.generarAudio = function(texto){
+        logDepuracion('🚀 generarAudio llamado con '+(texto?.length||0)+' caracteres');
+        let resultado;
+        try {
+          resultado = originalGenerar.call(this, texto);
+        } catch(err){
+          logDepuracion('💥 Error inmediato en generarAudio: '+err.message);
+          throw err;
+        }
+        if(resultado && typeof resultado.then === 'function'){
+          resultado
+            .then(()=>logDepuracion('✅ generarAudio completó sin errores'))
+            .catch(err=>logDepuracion('⚠️ generarAudio rechazado: '+err.message));
+        } else {
+          logDepuracion('ℹ️ generarAudio no devolvió una promesa detectable');
+        }
+        return resultado;
+      };
+
+      window.__legacyAudioInstrumentado = true;
+      logDepuracion('🧩 generarAudio instrumentado correctamente');
+    }
+
+    instrumentarAudioLegacy();
+    const legacyInstrumentInterval = setInterval(()=>{
+      if(window.__legacyAudioInstrumentado) {
+        clearInterval(legacyInstrumentInterval);
+        return;
+      }
+      instrumentarAudioLegacy();
+    }, 800);
+
     // El script audio.js ya define generarAudio, reproducirAudio y realLeerDescripcionPokemon en AppCreator24.
 
     function reproducirConUnrealSpeech(){
