@@ -1,4 +1,4 @@
-[21:00, 18/11/2025] Królestwo: <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -314,3 +314,4 @@
   </script>
 </body>
 </html>
+
