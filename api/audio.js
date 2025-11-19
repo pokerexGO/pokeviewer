@@ -104,22 +104,6 @@
     .rayo.r3 { left:86%; animation-delay:0.65s; }
     @keyframes caer { 0%{ transform:translateY(-120px); opacity:0; } 50%{ opacity:1; } 100%{ transform:translateY(100vh); opacity:0; } }
 
-    #debug {
-      margin-top: 12px;
-      width: 95%;
-      max-width: 600px;
-      background: #111;
-      padding: 8px 12px;
-      border-radius: 8px;
-      height: 120px;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 0.85rem;
-      white-space: pre-wrap;
-      border: 1px solid #333;
-      display: none; /* puedes mostrar para depuración */
-    }
-
     @media (max-width:420px) {
       .wrapper{ max-width:320px; }
       .pokemon-img{ width:140px; height:140px; }
@@ -127,7 +111,7 @@
       input[type="text"], .btnBuscar, .btnClear, #btnAudio { font-size:1rem; padding:10px 12px; }
     }
 
-    /* POPUP */
+    /* POPUP (inyectado igual que en original) */
     #popupPago {
       display: none;
       position: fixed;
@@ -150,11 +134,6 @@
     #cerrarPopup {
       margin-top: 10px;
       background: red;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
     }
   </style>
 </head>
@@ -178,9 +157,6 @@
         <button id="buscarBtn" class="btnBuscar">Buscar</button>
         <button id="clearBtn" class="btnClear">Limpiar</button>
       </div>
-
-      <!-- debug box (oculto por defecto) -->
-      <div id="debug">Zona de depuración activa...</div>
     </div>
   </div>
 
@@ -188,70 +164,55 @@
   <div class="rayo r2"></div>
   <div class="rayo r3"></div>
 
-  <!-- POPUP SUSCRIPCION -->
+  <!-- POPUP CON BOTÓN PAYPAL (igual que en original) -->
   <div id="popupPago">
     <div id="popupContent">
       <h2>🔥 Versión Premium de Voz</h2>
       <p>Suscríbete por solo <b>$3/mes</b> y usa la voz ilimitadamente.</p>
 
-      <!-- BOTÓN DE PAYPAL (igual que el original) -->
+      <!-- Contenedor del botón PayPal -->
       <div id="paypal-button-container-P-08M86817PK1059649NEOAHEY"></div>
 
       <button id="cerrarPopup">Cerrar</button>
     </div>
   </div>
 
-  <!-- PayPal SDK (mantén tu client-id aquí) -->
+  <!-- PayPal SDK (igual que tu original) -->
   <script src="https://www.paypal.com/sdk/js?client-id=Ad_Nq8cC1wRiz9DlMOZs9AhIH1caG4HS3mRC9EcOqLuqYVByBtlD2KuZcmA7oHgFmo47q5NLZu4sbfoc&vault=true&intent=subscription"></script>
 
-  <!-- Aquí va el puente + lógica que integra tu audio.js con la UI actual -->
+  <audio id="audioPlayer" controls style="display:none;"></audio>
+
   <script>
   (function(){
-    // ---------- ELEMENTOS ----------
+    /*******
+     * Elementos y estado
+     *******/
     const input = document.getElementById('pokemonInput');
     const buscarBtn = document.getElementById('buscarBtn');
     const clearBtn = document.getElementById('clearBtn');
     const screen = document.getElementById('screen');
     const screenContainer = document.getElementById('screenContainer');
     const btnAudioEl = document.getElementById('btnAudio');
-    const debugBox = document.getElementById('debug');
-    const popupPago = document.getElementById('popupPago');
+    const popup = document.getElementById('popupPago');
     const cerrarPopup = document.getElementById('cerrarPopup');
-    const audioPlayer = document.createElement('audio'); // audio element usado para reproducir el mp3 del backend
-    audioPlayer.id = 'audioPlayer';
-    audioPlayer.controls = true;
-    audioPlayer.style.display = 'none'; // no mostrar si no quieres
-    document.body.appendChild(audioPlayer);
+    const audioPlayer = document.getElementById('audioPlayer');
 
-    // ---------- ESTADO ----------
-    let paragraphs = [], paragraphElements = [], currentParagraphIndex = 0;
+    // estado de suscripción (temporal/local). Debes reemplazar por verificación server-side cuando lo tengas.
+    let usuarioSuscrito = false;
+
+    // para el resaltado sincronizado
+    let paragraphs=[], paragraphElements=[], currentParagraphIndex=0;
     let highlightTimer = null;
-    let scheduledHighlightTimeouts = [];
-    let usuarioSuscrito = false; // control local (debes cambiarlo con backend cuando corresponda)
-    let isPlayingViaServer = false; // si estamos reproduciendo el mp3 descargado
-    let lastGeneratedAudioUrl = null;
+    let syncTimer = null;
 
-    // ---------- UTIL ----------
+    // flags de reproducción
+    let isPlayingViaAudioFile = false;
+    let paused = false;
+
+    /*******
+     * Utilidades (igual que antes)
+     *******/
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
-    function log(msg){
-      console.log(msg);
-      if(debugBox){
-        debugBox.style.display = 'block';
-        debugBox.textContent += \n${msg};
-        debugBox.scrollTop = debugBox.scrollHeight;
-      }
-    }
-    function clearHighlights(){
-      paragraphElements.forEach(p=>p.classList.remove('highlight'));
-      paragraphElements = [];
-      if(screenContainer) screenContainer.scrollTop = 0;
-      scheduledHighlightTimeouts.forEach(t => clearTimeout(t));
-      scheduledHighlightTimeouts = [];
-      clearInterval(highlightTimer);
-      highlightTimer = null;
-    }
-
-    // ---------- PARSE & UI ----------
     function splitText(text){ return text ? text.replace(/[*\/#]/g,"").split(/\n+/).map(l=>l.trim()).filter(l=>l) : []; }
 
     function organize(text){
@@ -266,7 +227,7 @@
           if(!sections[tag]) sections[tag]=[];
           sections[tag].push(content);
         } else {
-          if(!sections["Información"]) sections["Información"]=[];
+          if(!sections["Información"]) sections["Información"]=[]; 
           sections["Información"].push(p);
         }
       });
@@ -282,24 +243,23 @@
       return {html, parasForTTS};
     }
 
-    // ---------- BÚSQUEDA ----------
     function showLoading(name){
-      // si hay reproducción nativa, cancelarla
-      stopAllPlayback();
-      screen.innerHTML = <p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
+      stopPlaybackAndClear();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
+      screen.innerHTML=<p>🔎 Buscando información sobre <strong>${esc(name)}</strong>...</p>;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      clearHighlights();
+      clearInterval(highlightTimer);
     }
 
     function showError(msg){
-      stopAllPlayback();
-      screen.innerHTML = <p>❌ ${esc(msg)}</p>;
+      stopPlaybackAndClear();
+      screen.innerHTML=<p>❌ ${esc(msg)}</p>;
       btnAudioEl.style.display="none";
       btnAudioEl.classList.remove("speaking");
       btnAudioEl.style.border="2px solid transparent";
-      clearHighlights();
+      clearInterval(highlightTimer);
     }
 
     async function buscarPokemon(nombre){
@@ -320,17 +280,18 @@
 
         paragraphs = organized.parasForTTS;
         paragraphElements = Array.from(document.querySelectorAll("#resultado p"));
-        currentParagraphIndex = 0;
+        currentParagraphIndex=0;
         btnAudioEl.style.display="block";
         btnAudioEl.classList.remove("speaking");
         btnAudioEl.style.border="2px solid transparent";
-        // stop any existing playback
-        stopAllPlayback();
 
         // Ajuste cuadro IA más grande
         screenContainer.style.maxHeight = "60vh";
         screenContainer.style.minHeight = "320px";
         screenContainer.style.width = "100%";
+
+        // stop any existing playback
+        stopPlaybackAndClear();
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
     }
@@ -352,119 +313,30 @@
       btnAudioEl.style.border="2px solid transparent";
       paragraphs=[]; paragraphElements=[]; currentParagraphIndex=0; paused=false;
       if(window.speechSynthesis) window.speechSynthesis.cancel();
-      clearHighlights();
+      stopPlaybackAndClear();
       screenContainer.style.maxHeight = "50vh";
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
     });
 
-    // ---------- INICIALIZACION VOZ PARA APP (mantener) ----------
+    // Forzar unlock de audio APIs en AppCreator24
     let speechInitialized = false;
     document.body.addEventListener("click", function initDummySpeech() {
       if (speechInitialized) return;
-      if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function") {
+      try {
         const u = new SpeechSynthesisUtterance("");
         u.lang = "es-ES";
         window.speechSynthesis.speak(u);
         window.speechSynthesis.cancel();
-        speechInitialized = true;
-        log("SpeechSynthesis inicializado para AppCreator24");
-      }
+      } catch(e) {}
+      speechInitialized = true;
       document.body.removeEventListener("click", initDummySpeech);
     });
 
-    // ---------- FUNCIONES DE REPRODUCCION / HIGHLIGHT (por servidor) ----------
-    function stopAllPlayback(){
-      try {
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-      } catch(e){}
-      // stop audio element
-      if(!audioPlayer.paused) audioPlayer.pause();
-      audioPlayer.src = "";
-      isPlayingViaServer = false;
-      clearHighlights();
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border = "2px solid transparent";
-    }
-
-    function scheduleHighlightsByDuration(totalDuration){
-      // heurística: repartir duración según longitud de cada paragraph
-      scheduledHighlightTimeouts.forEach(t => clearTimeout(t));
-      scheduledHighlightTimeouts = [];
-      if(!paragraphElements.length) return;
-      const lengths = paragraphElements.map(p=>p.textContent.length);
-      const totalChars = lengths.reduce((a,b)=>a+b,0) || 1;
-      let acc = 0;
-      let startAt = audioPlayer.currentTime || 0;
-      for(let i=0;i<paragraphElements.length;i++){
-        const proportion = lengths[i]/totalChars;
-        const dur = proportion * totalDuration;
-        const when = Math.max(0, startAt + acc);
-        const idx = i;
-        const t = setTimeout(()=>{
-          paragraphElements.forEach(p=>p.classList.remove('highlight'));
-          const el = paragraphElements[idx];
-          if(el){
-            el.classList.add('highlight');
-            try{ el.scrollIntoView({behavior:"smooth", block:"center"}); }catch(e){}
-          }
-        }, when*1000);
-        scheduledHighlightTimeouts.push(t);
-        acc += dur;
-      }
-      // after all, clear highlights and reset
-      const endT = setTimeout(()=>{
-        paragraphElements.forEach(p=>p.classList.remove('highlight'));
-        btnAudioEl.classList.remove("speaking");
-        btnAudioEl.style.border = "2px solid transparent";
-        audioPlayer.currentTime = 0;
-        audioPlayer.pause();
-        isPlayingViaServer = false;
-      }, (startAt + acc)*1000 + 300);
-      scheduledHighlightTimeouts.push(endT);
-    }
-
-    // ---------- BRIDGE: cuando el backend responde con audioUrl, reproducir y sincronizar highlights ----------
-    // Llamará a generarAudio(text) en tu audio.js frontend; esa función debería finalmente setear audioPlayer.src = url
-    // pero por robustez interceptamos el evento "loadedmetadata" del audio player para saber duración y sincronizar.
-    audioPlayer.addEventListener('loadedmetadata', ()=>{
-      const dur = audioPlayer.duration;
-      log(Duración audio (mp3): ${isFinite(dur) ? dur.toFixed(2) + 's' : 'desconocida'});
-      // reiniciar highlights y planificar
-      clearHighlights();
-      if(isFinite(dur) && dur>0){
-        scheduleHighlightsByDuration(dur);
-      } else {
-        // si no hay duración, usar heurística basada en text length -> estimar 150 wpm
-        const totalChars = paragraphs.join(' ').length;
-        const approxSec = Math.max(2, (totalChars/6) / (150/60)); // approx: words ~ chars/6 ; words per sec = 150/60
-        scheduleHighlightsByDuration(approxSec);
-      }
-    });
-
-    audioPlayer.addEventListener('play', ()=>{
-      btnAudioEl.classList.add("speaking");
-      btnAudioEl.style.border = "2px solid #00f0ff";
-      isPlayingViaServer = true;
-    });
-
-    audioPlayer.addEventListener('pause', ()=>{
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border = "2px solid transparent";
-      // pause scheduled timeouts -- cannot pause setTimeout, so we'll clear and reschedule on resume
-      scheduledHighlightTimeouts.forEach(t => clearTimeout(t));
-      scheduledHighlightTimeouts = [];
-    });
-
-    audioPlayer.addEventListener('ended', ()=>{
-      clearHighlights();
-      btnAudioEl.classList.remove("speaking");
-      btnAudioEl.style.border = "2px solid transparent";
-      isPlayingViaServer = false;
-      audioPlayer.currentTime = 0;
-    });
-
-    // ---------- PAYPAL: render en popup ----------
+    /*******
+     * PAYPAL (popup) - render del botón
+     *******/
+    // Render del botón PayPal dentro del POPUP (misma config que tu original)
     paypal.Buttons({
       style: {
         shape: 'rect',
@@ -480,101 +352,216 @@
       onApprove: function(data, actions) {
         usuarioSuscrito = true;
         alert("Suscripción activada");
-        popupPago.style.display = "none";
+        popup.style.display = "none";
       }
     }).render('#paypal-button-container-P-08M86817PK1059649NEOAHEY');
 
-    cerrarPopup.addEventListener("click", ()=> popupPago.style.display = "none");
+    cerrarPopup.addEventListener("click", ()=>{ popup.style.display = "none"; });
 
-    // ---------- BOTÓN LEER (integración) ----------
-    // Reemplaza el comportamiento del btnAudioEl: mostrar popup si no suscrito, y generar audio siempre
-    btnAudioEl.addEventListener('click', async ()=>{
+    /*******
+     * Integración TTS via backend /api/audio (Cloudinary + UnrealSpeech)
+     * - Llamada al backend: POST /api/audio { text: "..." }
+     * - Backend responde: { success:true, audioUrl, bytes }
+     * - Reproduce audio, sincroniza resaltado por párrafos usando duración y proporciones.
+     *******/
+    btnAudioEl.addEventListener("click", async ()=> {
       if(!paragraphs.length) return;
 
-      // si audio ya está reproduciéndose, pausa/resume
-      if(isPlayingViaServer && !audioPlayer.paused){
-        audioPlayer.pause();
-        return;
-      } else if(isPlayingViaServer && audioPlayer.paused){
-        audioPlayer.play().catch(err => log("Error al reanudar audio: "+err.message));
-        return;
+      // Si no está suscrito: mostrar popup. (pero seguimos generando audio PARA PRUEBAS)
+      if(!usuarioSuscrito) {
+        popup.style.display = "flex";
       }
 
-      // else: iniciar nueva reproducción (llama al backend TTS)
-      const fullText = paragraphs.join(' ');
-      // Si no suscrito, mostrar popup (pero *NO impedir* la generación)
-      if(!usuarioSuscrito){
-        popupPago.style.display = "flex";
-      }
-
-      // Llamamos a la función global generarAudio(text) que está en tu audio.js frontend.
-      // Tu audio.js debe:
-      //  - POST a /api/audio con { text: ... }
-      //  - recibir respuesta con audioUrl (key audioUrl)
-      //  - y asignar audioPlayer.src = audioUrl (o devolver la url)
-      // Para fiabilidad, intentamos llamar y también capturar la respuesta por fetch aquí si la función no la setea.
-      try {
-        if(typeof generarAudio === 'function'){
-          // llamar la función (asíncrona)
-          // generarAudio en tu audio.js anterior espera { text } y escribe logs y reproducirá audio.
-          await generarAudio(fullText);
-          // esperamos que audioPlayer.src sea puesto por audio.js. Como respaldo, si después de 1s no se ha establecido, intenta llamar el backend directamente aquí.
-          setTimeout(()=>{
-            if(!audioPlayer.src && lastGeneratedAudioUrl){
-              audioPlayer.src = lastGeneratedAudioUrl;
-              audioPlayer.play().catch(err => log("Error al reproducir (respaldo): "+err.message));
-            }
-          },1200);
+      // Si ya hay reproducción activa, togglear pause/resume
+      if(isPlayingViaAudioFile) {
+        if(!audioPlayer.paused) {
+          audioPlayer.pause();
+          paused = true;
+          btnAudioEl.classList.remove("speaking");
+          btnAudioEl.style.border="2px solid transparent";
+          stopHighlightSyncTimers();
         } else {
-          log("⚠️ generarAudio() no disponible, se intenta llamada directa al backend.");
-          // fallback: llamar backend directamente
-          const response = await fetch('/api/audio', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ text: fullText })
-          });
-          const raw = await response.text();
-          let data;
-          try { data = JSON.parse(raw); } catch(e){ log("Respuesta no JSON: "+raw); return; }
-          if(data && data.success && (data.audioUrl || data.url)){
-            const audioUrl = data.audioUrl || data.url;
-            lastGeneratedAudioUrl = audioUrl;
-            audioPlayer.src = audioUrl;
-            audioPlayer.play().catch(err=>log("Error al reproducir (fallback): "+err.message));
-          } else {
-            log("Error backend TTS: "+(data && data.error ? data.error : "sin audioUrl"));
-          }
+          audioPlayer.play().catch(e=>console.warn(e));
+          paused = false;
+          btnAudioEl.classList.add("speaking");
+          btnAudioEl.style.border="2px solid #00f0ff";
+          startHighlightSyncTimers(); // resume sync
         }
-      } catch(err){
-        log("💥 Error al generar audio desde bridge: " + err.message);
+        return;
       }
+
+      // No playback -> generar audio a partir de todo el texto (usamos paragraphs)
+      const fullText = paragraphs.join("\n\n");
+      await generarAudioYReproducir(fullText);
     });
 
-    // ---------- PARA PRUEBAS: EXPOSE función para generar y reproducir desde otros scripts ----------
-    // (opcional — útil si tu audio.js hace return de url en vez de reproducir)
-    window._bridgeSetAudioUrl = function(url){
-      if(!url) return;
-      lastGeneratedAudioUrl = url;
-      audioPlayer.src = url;
-      audioPlayer.play().catch(err=>log("Error al reproducir (bridge set): "+err.message));
-    };
+    async function generarAudioYReproducir(texto) {
+      try {
+        // mostrar feedback (puedes adaptar UI)
+        btnAudioEl.textContent = "⏳ Generando audio...";
+        btnAudioEl.style.display = "block";
 
-    // ---------- Si se busca nuevo pokemon, detener audio (ya manejado en buscarPokemon on start) ----------
+        const resp = await fetch("/api/audio", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ text: texto }) // tu backend espera { text }
+        });
 
-    // exposición (opcional) a la consola para debugging
-    window.__pokeBridge = {
-      buscarPokemon,
-      stopAllPlayback,
-      isSubscribed: ()=>usuarioSuscrito
-    };
+        const raw = await resp.text();
+        let data;
+        try { data = JSON.parse(raw); } catch(e){ console.error("Respuesta no JSON:", raw); showError("Respuesta no válida del servidor."); btnAudioEl.textContent="🔊 Leer"; return; }
 
-    // iniciar: nada más
-    log("Bridge integrado: UI <-> TTS backend conectado. El botón Leer mostrará popup si no hay suscripción y generará audio para pruebas.");
+        console.log("Respuesta del backend:", data);
+
+        if(!data.success || !data.audioUrl) {
+          console.warn("Error backend TTS:", data);
+          showError(data.error || "Error en backend TTS");
+          btnAudioEl.textContent="🔊 Leer";
+          return;
+        }
+
+        // preparamos audio
+        isPlayingViaAudioFile = true;
+        paused = false;
+        audioPlayer.style.display = "block";
+        audioPlayer.src = data.audioUrl;
+        audioPlayer.type = "audio/mpeg";
+        audioPlayer.load();
+
+        // cuando metadata cargue, sincronizamos
+        audioPlayer.onloadedmetadata = () => {
+          const duration = audioPlayer.duration || 0;
+          startHighlightSync(paragraphs, duration);
+          audioPlayer.play().catch(err=>console.warn("Play error:", err));
+          btnAudioEl.classList.add("speaking");
+          btnAudioEl.style.border="2px solid #00f0ff";
+          btnAudioEl.textContent = "⏸ Detener/Reanudar";
+        };
+
+        audioPlayer.onerror = (e) => {
+          console.error("Error audioPlayer:", e);
+          showError("No se pudo cargar el audio.");
+          btnAudioEl.textContent="🔊 Leer";
+          isPlayingViaAudioFile = false;
+        };
+
+        audioPlayer.onended = () => {
+          // terminar limpieza
+          stopPlaybackAndClear();
+        };
+
+        // mostrar bytes si vienen (debug)
+        if(data.bytes) console.log(📏 Tamaño del audio generado: ${data.bytes} bytes);
+
+      } catch(err) {
+        console.error(err);
+        showError("Error al generar audio: " + (err.message||err));
+        btnAudioEl.textContent="🔊 Leer";
+        isPlayingViaAudioFile = false;
+      }
+    }
+
+    /*******
+     * Sincronización de resaltado basada en duración del audio
+     * Estrategia:
+     *  - Calcular pesos por longitud de párrafo
+     *  - Mapear cada párrafo a un intervalo de tiempo proporcional
+     *  - En cada tick, resaltar el párrafo correspondiente según audio.currentTime
+     *******/
+    function startHighlightSync(paras, duration) {
+      stopHighlightSyncTimers();
+
+      // protección
+      if(!paras || paras.length===0 || !duration || duration <= 0) {
+        // si no hay duración o es 0 -> solo resaltar secuencialmente con tiempos fijos
+        sequentialHighlightFallback(paras);
+        return;
+      }
+
+      // calcular pesos (longitud)
+      const lengths = paras.map(p => p.length || 1);
+      const total = lengths.reduce((a,b)=>a+b, 0);
+      // generar time windows
+      const windows = [];
+      let acc = 0;
+      for(let i=0;i<paras.length;i++){
+        const start = acc / total * duration;
+        acc += lengths[i];
+        const end = acc / total * duration;
+        windows.push({start, end});
+      }
+
+      // función que en cada tick comprueba currentTime
+      syncTimer = setInterval(()=> {
+        const t = audioPlayer.currentTime;
+        let idx = windows.findIndex(w => t >= w.start && t < w.end);
+        if(idx === -1) {
+          if(t >= duration - 0.05) idx = paras.length - 1; // final
+        }
+        if(idx !== -1 && idx !== currentParagraphIndex) {
+          currentParagraphIndex = idx;
+          updateHighlight();
+        }
+      }, 120);
+
+      // inicio: asegurar highlight en índice 0
+      currentParagraphIndex = 0;
+      updateHighlight();
+    }
+
+    function updateHighlight(){
+      paragraphElements.forEach((p,i)=> {
+        if(i === currentParagraphIndex) {
+          p.classList.add("highlight");
+          p.scrollIntoView({behavior:"smooth", block:"center"});
+        } else p.classList.remove("highlight");
+      });
+    }
+
+    function stopHighlightSyncTimers(){
+      if(syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+      if(highlightTimer) { clearInterval(highlightTimer); highlightTimer = null; }
+    }
+
+    function sequentialHighlightFallback(paras){
+      // Si no hay duración válido, mostramos cada párrafo por 1s approximado
+      stopHighlightSyncTimers();
+      let i=0;
+      if(!paras || paras.length===0) return;
+      highlightTimer = setInterval(()=> {
+        paragraphElements.forEach(p=>p.classList.remove("highlight"));
+        if(i < paragraphElements.length) {
+          paragraphElements[i].classList.add("highlight");
+          paragraphElements[i].scrollIntoView({behavior:"smooth", block:"center"});
+          i++;
+        } else {
+          clearInterval(highlightTimer);
+        }
+      }, 900);
+    }
+
+    function stopPlaybackAndClear(){
+      // stop audio
+      try { audioPlayer.pause(); audioPlayer.currentTime = 0; } catch(e){}
+      // reset flags and UI
+      isPlayingViaAudioFile = false;
+      paused = false;
+      btnAudioEl.classList.remove("speaking");
+      btnAudioEl.style.border="2px solid transparent";
+      btnAudioEl.textContent = "🔊 Leer";
+      stopHighlightSyncTimers();
+      // clear highlights
+      paragraphElements.forEach(p=>p.classList.remove("highlight"));
+      currentParagraphIndex = 0;
+    }
+
+    /*******
+     * Si el usuario busca otro Pokémon: detener la reproducción
+     *******/
+    // buscarPokemon ya llama stopPlaybackAndClear() al iniciar
+    // clearBtn también lo hace
+
   })();
   </script>
-
-  <!-- Tu audio.js frontend (debe existir en ./audio.js) -->
-  <!-- Este archivo debe exponer la función global generarAudio(text) que POSTea a /api/audio y, al recibir audioUrl, asigna audioPlayer.src o llama a window._bridgeSetAudioUrl(audioUrl)  -->
-  <script src="./audio.js"></script>
 </body>
 </html>
