@@ -398,8 +398,8 @@
         actualizarTextoLegacy(paragraphs.join("\n\n"));
         if(legacyDebug){ legacyDebug.textContent = "Texto listo para TTS"; }
 
-        screenContainer.style.maxHeight = "60vh"; 
-        screenContainer.style.minHeight = "320px"; 
+        screenContainer.style.maxHeight = "50vh"; 
+        screenContainer.style.minHeight = "300px"; 
         screenContainer.style.width = "100%";
 
       } catch(err){ console.error(err); showError("Error al conectar con el servidor."); }
