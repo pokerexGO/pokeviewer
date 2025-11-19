@@ -213,7 +213,41 @@
     let highlightInterval=null;
     let usuarioSuscrito=false;
     const supportsSpeechSynthesis = "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
-    const isLegacyWebView = !supportsSpeechSynthesis || /appcreator24|wv|webview/i.test((navigator.userAgent||"").toLowerCase());
+    const ua = (navigator.userAgent||"").toLowerCase();
+    const legacyRegex = /(appcreator24|appinventor|wv|webview|android.*; wv)/i;
+    const hasAppInventor = typeof window.AppInventor !== "undefined";
+    const isLegacyWebView = !supportsSpeechSynthesis || legacyRegex.test(ua) || hasAppInventor || window.FORCE_LEGACY_TTS === true;
+
+    function actualizarTextoLegacy(texto){
+      if(legacyTextArea) legacyTextArea.value = texto || "";
+    }
+
+    function reproducirConUnrealSpeech(){
+      const texto = (legacyTextArea?.value || paragraphs.join("\n\n") || "").trim();
+      if(!texto){
+        if(legacyDebug) legacyDebug.textContent = "No hay texto para enviar a UnrealSpeech";
+        return false;
+      }
+
+      if(typeof window.generarAudio === 'function'){
+        if(legacyDebug) legacyDebug.textContent = "Invocando generarAudio (frontend UnrealSpeech)";
+        window.generarAudio(texto);
+        return true;
+      }
+
+      if(typeof window.realLeerDescripcionPokemon === 'function'){
+        if(legacyDebug) legacyDebug.textContent = "Invocando realLeerDescripcionPokemon heredado";
+        window.realLeerDescripcionPokemon();
+        return true;
+      }
+
+      if(typeof window.reproducirAudio === 'function'){
+        if(legacyDebug) legacyDebug.textContent = "No hay generador, solo reproductor";
+      }
+
+      if(legacyDebug) legacyDebug.textContent = "No se encontró integración UnrealSpeech";
+      return false;
+    }
 
     function esc(s){ return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):""; }
 
@@ -327,9 +361,7 @@
         btnAudioEl.style.border="2px solid transparent";
         speech=null;
 
-        if(legacyTextArea){
-          legacyTextArea.value = paragraphs.join("\n\n");
-        }
+        actualizarTextoLegacy(paragraphs.join("\n\n"));
         if(legacyDebug){ legacyDebug.textContent = "Texto listo para TTS"; }
 
         screenContainer.style.maxHeight = "60vh"; 
@@ -361,7 +393,7 @@
       screenContainer.style.minHeight = "280px";
       screenContainer.style.width = "100%";
       ocultarPopup();
-      if(legacyTextArea){ legacyTextArea.value = ""; }
+      actualizarTextoLegacy("");
       if(legacyAudioPlayer){ legacyAudioPlayer.pause(); legacyAudioPlayer.currentTime = 0; }
     });
 
@@ -443,9 +475,8 @@
     function manejarLeer(){
       if(!paragraphs.length) return;
       mostrarPopupSuscripcion();
-      if(isLegacyWebView && typeof window.realLeerDescripcionPokemon === 'function'){
-        if(legacyDebug){ legacyDebug.textContent = "Reproduciendo vía UnrealSpeech"; }
-        window.realLeerDescripcionPokemon();
+      if(isLegacyWebView){
+        if(!reproducirConUnrealSpeech()) toggleLectura();
       } else {
         toggleLectura();
       }
