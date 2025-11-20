@@ -95,13 +95,7 @@
       100% { transform: scale(1.05); box-shadow: 0 0 20px #00f0ff; }
     }
 
-    audio#audioPlayer {
-      width:100%;
-      margin-top:10px;
-      border-radius:8px;
-      background:#111;
-      display:none;
-    }
+    audio#audioPlayer { display:none; }
 
     .rayo {
       position:fixed; top:-120px; width:2px; height:120px; background:linear-gradient(180deg,#0ff,transparent); opacity:.6;
@@ -233,10 +227,7 @@
       console.log.apply(console, arguments);
     }
 
-    function mostrarAudioPlayer(){ if(legacyAudioPlayer) legacyAudioPlayer.style.display='block'; }
-    function ocultarAudioPlayer(){ if(legacyAudioPlayer) legacyAudioPlayer.style.display='none'; }
-
-    function stopLegacyAudio({clearSource=false, hide=false}={}){
+    function stopLegacyAudio({clearSource=false}={}){
       if(!legacyAudioPlayer) return;
       legacyAudioPlayer.pause();
       legacyAudioPlayer.currentTime = 0;
@@ -244,9 +235,15 @@
         legacyAudioPlayer.removeAttribute('src');
         legacyAudioPlayer.load();
       }
-      if(hide) ocultarAudioPlayer();
-      else mostrarAudioPlayer();
       if(window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+
+    function audioPermitido(){
+      if(usuarioSuscrito){
+        alert('Cancela tu suscripción para volver a usar el audio de prueba.');
+        return false;
+      }
+      return true;
     }
 
     function legacyReproducirAudio(url){
@@ -272,7 +269,6 @@
         });
         audio.__legacyEventos = true;
       }
-      mostrarAudioPlayer();
       audio.pause();
       audio.src = '';
       audio.src = url;
@@ -284,7 +280,7 @@
       };
       audio.addEventListener('ended', ()=>{
         logDepuracion('ℹ️ Audio completado');
-        stopLegacyAudio({clearSource:false, hide:false});
+        stopLegacyAudio({clearSource:false});
       }, { once:false });
       audio.onerror = (e)=>{
         logDepuracion('❌ Error al cargar el audio: '+(e?.message||'desconocido'));
@@ -292,6 +288,7 @@
     }
 
     async function legacyGenerarAudio(texto){
+      if(!audioPermitido()) return;
       logDepuracion('🚀 generarAudio llamado con '+(texto?.length||0)+' caracteres');
       if(!texto || !texto.trim()){
         logDepuracion('⚠️ Texto vacío, no se genera audio');
@@ -335,6 +332,7 @@
 
     function toggleLegacyPlayback(texto){
       if(!legacyAudioPlayer) return false;
+      if(!audioPermitido()) return false;
       const hasSource = !!legacyAudioPlayer.src;
       const audioEnded = legacyAudioPlayer.ended;
       if(hasSource && !legacyAudioPlayer.paused && !audioEnded){
@@ -347,7 +345,7 @@
         logDepuracion('▶️ Audio reanudado');
         return true;
       }
-      stopLegacyAudio({clearSource:true, hide:true});
+      stopLegacyAudio({clearSource:true});
       legacyGenerarAudio(texto);
       return true;
     }
@@ -358,7 +356,7 @@
         logDepuracion("No hay texto para enviar a UnrealSpeech");
         return false;
       }
-
+      if(usuarioSuscrito) return false;
       logDepuracion("Invocando UnrealSpeech con el texto de Gemini");
       return toggleLegacyPlayback(texto);
     }
@@ -566,7 +564,7 @@
     }
 
     function toggleLectura(){
-      if(!paragraphs.length || !supportsSpeechSynthesis) return;
+      if(!paragraphs.length || !supportsSpeechSynthesis || !audioPermitido()) return;
       const synth = window.speechSynthesis;
       if(synth.speaking && !paused){
         synth.pause();
@@ -590,10 +588,8 @@
       if(!paragraphs.length) return;
       mostrarPopupSuscripcion();
       if(isLegacyWebView){
-        mostrarPopupSuscripcion();
         if(!reproducirConUnrealSpeech()) toggleLectura();
       } else {
-        mostrarPopupSuscripcion();
         toggleLectura();
       }
     }
@@ -602,7 +598,6 @@
     legacyAudioPlayer?.addEventListener('play', ()=>btnAudioEl.classList.add('speaking'));
     legacyAudioPlayer?.addEventListener('pause', ()=>btnAudioEl.classList.remove('speaking'));
     legacyAudioPlayer?.addEventListener('ended', ()=>btnAudioEl.classList.remove('speaking'));
-    ocultarAudioPlayer();
 
   })();
   </script>
