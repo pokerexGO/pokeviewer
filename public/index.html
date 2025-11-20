@@ -239,8 +239,9 @@
     }
 
     function audioPermitido(){
-      if(usuarioSuscrito){
-        alert('Cancela tu suscripción para volver a usar el audio de prueba.');
+      if(!usuarioSuscrito){
+        mostrarPopupSuscripcion();
+        alert('Necesitas suscribirte para usar el audio.');
         return false;
       }
       return true;
@@ -356,7 +357,7 @@
         logDepuracion("No hay texto para enviar a UnrealSpeech");
         return false;
       }
-      if(usuarioSuscrito) return false;
+      if(!audioPermitido()) return false;
       logDepuracion("Invocando UnrealSpeech con el texto de Gemini");
       return toggleLegacyPlayback(texto);
     }
@@ -586,9 +587,9 @@
 
     function manejarLeer(){
       if(!paragraphs.length) return;
-      mostrarPopupSuscripcion();
+      if(!audioPermitido()) return;
       if(isLegacyWebView){
-        if(!reproducirConUnrealSpeech()) toggleLectura();
+        reproducirConUnrealSpeech();
       } else {
         toggleLectura();
       }
