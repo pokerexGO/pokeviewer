@@ -236,13 +236,17 @@
     function mostrarAudioPlayer(){ if(legacyAudioPlayer) legacyAudioPlayer.style.display='block'; }
     function ocultarAudioPlayer(){ if(legacyAudioPlayer) legacyAudioPlayer.style.display='none'; }
 
-    function resetLegacyAudio(){
+    function stopLegacyAudio({clearSource=false, hide=false}={}){
       if(!legacyAudioPlayer) return;
       legacyAudioPlayer.pause();
       legacyAudioPlayer.currentTime = 0;
-      legacyAudioPlayer.removeAttribute('src');
-      legacyAudioPlayer.load();
-      ocultarAudioPlayer();
+      if(clearSource){
+        legacyAudioPlayer.removeAttribute('src');
+        legacyAudioPlayer.load();
+      }
+      if(hide) ocultarAudioPlayer();
+      else mostrarAudioPlayer();
+      if(window.speechSynthesis) window.speechSynthesis.cancel();
     }
 
     function legacyReproducirAudio(url){
@@ -280,7 +284,7 @@
       };
       audio.addEventListener('ended', ()=>{
         logDepuracion('ℹ️ Audio completado');
-        resetLegacyAudio();
+        stopLegacyAudio({clearSource:false, hide:false});
       }, { once:false });
       audio.onerror = (e)=>{
         logDepuracion('❌ Error al cargar el audio: '+(e?.message||'desconocido'));
@@ -332,16 +336,18 @@
     function toggleLegacyPlayback(texto){
       if(!legacyAudioPlayer) return false;
       const hasSource = !!legacyAudioPlayer.src;
-      if(hasSource && !legacyAudioPlayer.paused && !legacyAudioPlayer.ended){
+      const audioEnded = legacyAudioPlayer.ended;
+      if(hasSource && !legacyAudioPlayer.paused && !audioEnded){
         legacyAudioPlayer.pause();
         logDepuracion('⏸️ Audio en pausa');
         return true;
       }
-      if(hasSource && legacyAudioPlayer.paused && !legacyAudioPlayer.ended){
+      if(hasSource && legacyAudioPlayer.paused && !audioEnded){
         legacyAudioPlayer.play();
         logDepuracion('▶️ Audio reanudado');
         return true;
       }
+      stopLegacyAudio({clearSource:true, hide:true});
       legacyGenerarAudio(texto);
       return true;
     }
@@ -502,7 +508,7 @@
       screenContainer.style.width = "100%";
       ocultarPopup();
       actualizarTextoLegacy("");
-      resetLegacyAudio();
+      stopLegacyAudio({clearSource:false, hide:false});
     });
 
     if(supportsSpeechSynthesis){
@@ -596,6 +602,7 @@
     legacyAudioPlayer?.addEventListener('play', ()=>btnAudioEl.classList.add('speaking'));
     legacyAudioPlayer?.addEventListener('pause', ()=>btnAudioEl.classList.remove('speaking'));
     legacyAudioPlayer?.addEventListener('ended', ()=>btnAudioEl.classList.remove('speaking'));
+    ocultarAudioPlayer();
 
   })();
   </script>
